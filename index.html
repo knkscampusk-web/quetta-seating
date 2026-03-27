@@ -129,9 +129,13 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .edit-student-mode .sc.has-student{cursor:pointer}
 .edit-student-mode .sc.has-student:hover{border-color:var(--amber)!important;box-shadow:0 0 0 2px var(--amber-lt)!important}
 
-.sn-wrap{position:absolute;top:3px;right:5px}
-.sn{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:var(--sl400);line-height:1}
-.sc.male .sn{color:#60a5fa}.sc.female .sn{color:#c084fc}.sc.blocked .sn{color:var(--sl300)}
+.sn-wrap{position:absolute;top:3px;right:4px}
+.sn{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;
+  background:var(--sl200);color:var(--sl600,#475569);
+  padding:1px 5px;border-radius:4px;line-height:1.4;display:inline-block}
+.sc.male .sn{background:#bfdbfe;color:#1e40af}
+.sc.female .sn{background:#e9d5ff;color:#6b21a8}
+.sc.blocked .sn{background:var(--sl100);color:var(--sl300)}
 .s-ban{font-size:9px;font-weight:800;color:var(--blue);margin-top:15px;line-height:1.2}
 .s-hak{font-size:10px;font-weight:600;color:var(--sl700);line-height:1.4;
   font-family:'IBM Plex Mono',monospace;letter-spacing:-.02em}
@@ -360,6 +364,9 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
   <span id="bar-stat"></span>
   <button class="btn btn-sec btn-sm" onclick="openUplModal(S.active)">📤 강의실 업로드</button>
   <button class="btn btn-sec btn-sm" onclick="doPrint()">🖨 인쇄</button>
+  <div style="width:1px;height:18px;background:var(--sl200);margin:0 2px"></div>
+  <button class="btn btn-sec btn-sm" onclick="printAll('student')" title="전체 강의실 학생용 한번에 인쇄">🖨 전체·학생</button>
+  <button class="btn btn-sec btn-sm" onclick="printAll('proctor')" title="전체 강의실 시감자용 한번에 인쇄">🖨 전체·시감</button>
 </div>
 
 <!-- SWAP BAR -->
@@ -547,6 +554,7 @@ let S={
 };
 let pendingExam='',_rzId=null,dragSrc=null,_editStuIdx=null,_uploadRoomId='all';
 let _statsExam='all';
+let _printMask=true; // 학생용 인쇄 시 이름 마스킹 여부
 let _saveTimer=null;   // debounce timer
 let _syncing=false;    // prevent feedback loop from onSnapshot
 
@@ -896,9 +904,8 @@ function renderGrid(room,isProctor){
               <div class="s-name"><span class="name-full">${stu.이름}</span><span class="name-mask">${maskName(stu.이름)}</span></div>`;
       if(isProctor) inner+=`<div class="bdgs">${gBdg(stu)}${tBdg(stu)}</div>`;
     }else inner+=`<div class="s-empty">·</div>`;
-    const ddSrc=stu?`draggable="true" ondragstart="onDragStart(event,'seat','${room.id}',${cell.n},${stu._i})" ondragend="onDragEnd(event)"`:'';
-    const ddTgt=`ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${room.id}',${cell.n})"`;
-    html+=`<div class="sc ${cls}" style="width:${seatW}px;min-height:72px" ${ddSrc} ${ddTgt} onclick="clickSeat('${room.id}',${cell.n})">${inner}</div>`;
+    const ddSrc=(stu&&S.editStudentMode)?`draggable="true" ondragstart="onDragStart(event,'seat','${room.id}',${cell.n},${stu._i})" ondragend="onDragEnd(event)"`:'';
+    const ddTgt=S.editStudentMode?`ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${room.id}',${cell.n})"`:'';    html+=`<div class="sc ${cls}" style="width:${seatW}px;min-height:72px" ${ddSrc} ${ddTgt} onclick="clickSeat('${room.id}',${cell.n})">${inner}</div>`;
   });
 
   const ua=stus.filter(s=>!validNs.has(+s.자리));
@@ -955,8 +962,8 @@ function saveNotice(roomId,val){
 
 function uaHtml(room,ua){
   const chips=ua.map(s=>`
-    <div class="ua-chip ${s._mismatch?'mismatch':''}" draggable="true"
-      ondragstart="onDragStart(event,'unassigned','${room.id}',0,${s._i})" ondragend="onDragEnd(event)"
+    <div class="ua-chip ${s._mismatch?'mismatch':''}"
+      ${S.editStudentMode?`draggable="true" ondragstart="onDragStart(event,'unassigned','${room.id}',0,${s._i})" ondragend="onDragEnd(event)"`:''}
       onclick="openEditStu(${s._i})" title="${s._mismatch?'다른 강의실로 지정된 학생':'미배정 학생'}">
       ${s._mismatch?'⚠ ':''}${gBdg(s)}${tBdg(s)}<span>${s.이름}</span><span class="ua-mini">${s.학번}</span>
       ${s._mismatch?`<span class="ua-mini" style="color:#ef4444">(${s.고사장||'?'})</span>`:''}
@@ -1348,44 +1355,68 @@ function setView(v){
   else renderMain();
 }
 function doPrint(){
-  const isStudent=S.view==='student';
-  document.body.className=isStudent?'ps':'pp';
+  if(S.view==='student'){
+    // 마스킹 선택 모달 표시
+    openModal('print-mask-modal');
+  } else {
+    executePrint(false);
+  }
+}
+function executePrint(mask){
+  _printMask=mask;
+  document.body.className=mask?'ps':'pp-no-mask';
 
-  // ── 1. inject @page and name/masking rules via stylesheet ──
   const styleId='__pstyle';
   document.getElementById(styleId)?.remove();
   const st=document.createElement('style');
   st.id=styleId;
-  st.textContent=`@media print{@page{size:A4 portrait;margin:6mm}}`;
+  // masking rule 동적 적용
+  if(mask){
+    st.textContent=`
+      @media print{
+        @page{size:A4 portrait;margin:6mm}
+        .name-full{display:none!important}
+        .name-mask{display:inline!important}
+        .info-bar,.cc-bar{display:none!important}
+      }`;
+  } else {
+    st.textContent=`
+      @media print{
+        @page{size:A4 portrait;margin:6mm}
+        .name-full{display:inline!important}
+        .name-mask{display:none!important}
+        .info-bar,.cc-bar{display:none!important}
+      }`;
+  }
+  // 시감자용 (proctor)
+  if(S.view==='proctor'){
+    st.textContent=`
+      @media print{
+        @page{size:A4 portrait;margin:6mm}
+        .name-full{display:inline!important}
+        .name-mask{display:none!important}
+        .cc-bar{display:flex!important}
+        .info-bar{display:flex!important}
+      }`;
+  }
   document.head.appendChild(st);
 
-  // ── 2. measure grid and apply inline zoom directly on printArea ──
-  // A4 portrait printable width: 210mm - 2×6mm = 198mm ≈ 748px at 96 dpi
-  // A4 portrait printable height: 297mm - 2×6mm = 285mm ≈ 1077px at 96 dpi
   const A4W=748, A4H=1077;
   const area=document.getElementById('printArea');
-  // remove previous inline zoom so measurement is accurate
   if(area) area.style.zoom='';
 
   requestAnimationFrame(()=>{
     if(area){
-      // measure the actual rendered grid (most reliable)
       const grid=area.querySelector('.sgrid');
       const rawW=grid ? grid.getBoundingClientRect().width+30 : area.scrollWidth;
       const rawH=area.scrollHeight;
-      const sx= rawW>A4W ? A4W/rawW : 1;
-      const sy= rawH>A4H ? A4H/rawH : 1;
-      const sc= Math.min(sx,sy);
-      if(sc<0.999){
-        // Apply zoom as inline style — works even when browser print dialog is at "기본값"
-        area.style.zoom=sc.toFixed(4);
-      }
+      const sx=rawW>A4W ? A4W/rawW : 1;
+      const sy=rawH>A4H ? A4H/rawH : 1;
+      const sc=Math.min(sx,sy);
+      if(sc<0.999) area.style.zoom=sc.toFixed(4);
     }
-
-    // slight delay to let the browser repaint before opening print dialog
     setTimeout(()=>{
       window.print();
-      // cleanup
       setTimeout(()=>{
         if(area) area.style.zoom='';
         document.getElementById(styleId)?.remove();
@@ -1395,7 +1426,132 @@ function doPrint(){
   });
 }
 
-/* ═══ RESET ═══ */
+/* ═══ PRINT ALL ROOMS ═══ */
+function printAll(mode){
+  const isStudent = mode === 'student';
+  const seatW = 78;
+
+  // 각 강의실 HTML 생성
+  const pages = S.rooms.map(room => {
+    const stus = roomStu(room.id);
+    if(!stus.length && room.cells.filter(c=>c.state==='active').length===0) return '';
+
+    const sorted = [...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
+    const cells  = isStudent ? sorted : [...sorted].reverse();
+
+    // col template
+    const colEmpty = Array(room.cols).fill(true);
+    room.cells.forEach(cell=>{ if(cell.state!=='void') colEmpty[cell.c]=false; });
+    let colArr = colEmpty.map(e=>e?'8px':`${seatW}px`);
+    if(!isStudent) colArr = [...colArr].reverse();
+    const colTpl = colArr.join(' ');
+
+    // class info
+    const classMap={}, classCnt={};
+    stus.forEach(s=>{ if(s.반&&s.반코드) classMap[s.반]=s.반코드; if(s.반) classCnt[s.반]=(classCnt[s.반]||0)+1; });
+    const classEntries = Object.entries(classMap).sort((a,b)=>a[0].localeCompare(b[0]));
+
+    // cards
+    let cardsHTML='';
+    cells.forEach(cell=>{
+      if(cell.state==='void'){ cardsHTML+=`<div style="width:8px"></div>`; return; }
+      if(cell.state==='blocked'){
+        cardsHTML+=`<div style="width:${seatW}px;min-height:60px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fafafa;position:relative;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94a3b8">
+          <span style="position:absolute;top:3px;right:4px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:#94a3b8">${cell.dn}</span>미사용</div>`; return;
+      }
+      const stu = seatStu(room.id, cell.n);
+      const bg = stu ? (stu.성별==='남'?'#eff6ff':stu.성별==='여'?'#fdf4ff':'#f8fafc') : '#f8fafc';
+      const bd = stu ? (stu.성별==='남'?'#93c5fd':stu.성별==='여'?'#d8b4fe':'#e2e8f0') : '#e2e8f0';
+      const snColor = stu ? (stu.성별==='남'?'#60a5fa':stu.성별==='여'?'#c084fc':'#94a3b8') : '#94a3b8';
+
+      let inner = `<span style="position:absolute;top:3px;right:4px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:${snColor}">${cell.dn}</span>`;
+      if(stu){
+        const nameDisp = isStudent ? maskName(stu.이름) : stu.이름;
+        inner += `<div style="font-size:8px;font-weight:800;color:#2563eb;margin-top:14px;line-height:1.2">${stu.반코드||''}</div>
+                  <div style="font-size:9px;font-weight:600;color:#475569;font-family:'IBM Plex Mono',monospace;line-height:1.3">${stu.학번}</div>
+                  <div style="font-size:12px;font-weight:800;color:#0b1120;line-height:1.3;margin-top:1px">${nameDisp}</div>`;
+        if(!isStudent){
+          const gb = stu.성별==='남'?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;background:#dbeafe;color:#1e40af">남</span>`
+                   : stu.성별==='여'?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;background:#fce7f3;color:#9d174d">여</span>`:'';
+          const t=stu.탐구||''; const tc=t.includes('사탐')?'background:#dcfce7;color:#14532d':t.includes('과탐')?'background:#fef9c3;color:#713f12':t.includes('사과')?'background:#ede9fe;color:#4c1d95':'';
+          const tb=t?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;${tc}">${t}</span>`:'';
+          inner+=`<div style="display:flex;gap:2px;flex-wrap:wrap;margin-top:2px">${gb}${tb}</div>`;
+        }
+      } else {
+        inner += `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:12px;margin-top:10px">·</div>`;
+      }
+      cardsHTML+=`<div style="border-radius:6px;border:1.5px solid ${bd};background:${bg};padding:4px 5px 5px;min-height:60px;width:${seatW}px;position:relative;display:flex;flex-direction:column;gap:1px">${inner}</div>`;
+    });
+
+    // exam info
+    const examObj = examByName(room.examType);
+    const examDate = examObj?.date ? ` (시행일:${examObj.date})` : '';
+
+    // class info bar (proctor only)
+    const ccHtml = !isStudent && Object.keys(classCnt).length
+      ? `<div style="padding:4px 0;font-size:10px;display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">
+          <span style="font-weight:700;color:#166534">반별 인원</span>
+          ${Object.entries(classCnt).sort((a,b)=>a[0].localeCompare(b[0])).map(([b,c])=>
+            `<span style="background:#dcfce7;color:#14532d;font-weight:700;padding:1px 7px;border-radius:10px;font-size:9px">${b} ${c}명</span>`).join('')}
+          <span style="margin-left:auto;font-size:9px;color:#64748b">계 ${stus.length}명</span>
+         </div>` : '';
+
+    const infoHtml = classEntries.length
+      ? `<div style="font-size:10px;display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">
+          <span style="font-weight:700;color:#94a3b8">반 구성</span>
+          ${classEntries.map(([b,c])=>`<span style="background:#dbeafe;color:#1e40af;font-weight:800;padding:1px 6px;border-radius:10px;font-size:9px">${b}·${c}</span>`).join('')}
+         </div>` : '';
+
+    const noticeHtml = room.notice
+      ? `<div style="font-size:10px;font-weight:600;color:#78350f;background:#fefce8;border-left:3px solid #fde047;padding:3px 7px;margin-bottom:4px;border-radius:2px">${room.notice}</div>` : '';
+
+    const boardTop    = isStudent ? `<div style="margin:4px 0;background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7)">칠 판</div>` : '';
+    const boardBottom = !isStudent ? `<div style="margin:4px 0;background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7)">칠 판</div>` : '';
+
+    return `
+      <div style="page-break-after:always;padding:0">
+        <!-- 인쇄 헤더 -->
+        <div style="border-bottom:2px solid #0b1120;padding-bottom:6px;margin-bottom:6px">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <span style="font-size:20px;font-weight:900">${room.name}</span>
+            ${room.examType?`<span style="font-size:13px;font-weight:700;color:#2563eb">${room.examType}</span>`:''}
+            ${examDate?`<span style="font-size:11px;color:#64748b">${examDate}</span>`:''}
+            <span style="font-size:11px;color:#94a3b8">${isStudent?'[학생용]':'[시감자용]'}</span>
+          </div>
+          ${noticeHtml}
+        </div>
+        ${isStudent?infoHtml:''}
+        ${!isStudent?ccHtml:''}
+        ${!isStudent?infoHtml:''}
+        ${boardTop}
+        <div style="display:grid;grid-template-columns:${colTpl};gap:3px;width:fit-content">${cardsHTML}</div>
+        ${boardBottom}
+      </div>`;
+  }).filter(Boolean).join('');
+
+  if(!pages){ toast('배정된 학생이 없습니다','err'); return; }
+
+  // 새 창에서 인쇄
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>${isStudent?'학생용':'시감자용'} 전체 배치표</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Noto Sans KR',sans-serif;background:white;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      @media print{
+        @page{size:A4 portrait;margin:6mm}
+        body{margin:0}
+        div[style*="page-break-after"]{page-break-after:always}
+        div[style*="page-break-after"]:last-child{page-break-after:avoid}
+      }
+    </style>
+  </head><body>${pages}</body></html>`);
+  w.document.close();
+  w.onload=()=>{ w.focus(); w.print(); };
+  toast(`${S.rooms.length}개 강의실 ${isStudent?'학생용':'시감자용'} 인쇄 준비됨`,'ok');
+}
 function confirmReset(){
   if(!confirm('배정된 학생 데이터를 초기화합니다.\n강의실 배열은 유지됩니다.\n\n계속하시겠습니까?')) return;
   if(!confirm('⚠ 이 작업은 되돌릴 수 없습니다.\n정말 초기화하시겠습니까?')) return;
