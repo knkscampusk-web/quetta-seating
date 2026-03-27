@@ -523,6 +523,76 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
   </div>
 </div>
 
+<!-- ══ ADD STUDENT MANUAL MODAL ══ -->
+<div class="overlay" id="add-stu-modal" onclick="ovClose(event,'add-stu-modal')">
+  <div class="modal modal-sm">
+    <div class="mhd"><span class="mhd-title">✚ 학생 수기 등록</span><button class="btn btn-ghost" onclick="closeModal('add-stu-modal')">✕</button></div>
+    <div class="mbody">
+      <div id="as-header" style="font-size:12px;color:var(--sl400);margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--sl200)"></div>
+      <div class="fg-row">
+        <div class="fg"><label class="fl">이름 *</label><input class="fi" id="as-name" placeholder="홍길동"></div>
+        <div class="fg"><label class="fl">학번 *</label><input class="fi" id="as-hak" placeholder="5001"></div>
+      </div>
+      <div class="fg-row">
+        <div class="fg"><label class="fl">반</label><input class="fi" id="as-ban" placeholder="X2"></div>
+        <div class="fg"><label class="fl">반코드</label><input class="fi" id="as-bancode" placeholder="71"></div>
+      </div>
+      <div class="fg">
+        <label class="fl">성별</label>
+        <div class="radio-grp">
+          <label><input type="radio" name="as-gender" value="남"> 남</label>
+          <label><input type="radio" name="as-gender" value="여"> 여</label>
+          <label><input type="radio" name="as-gender" value=""> 미지정</label>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">탐구</label>
+        <div class="radio-grp">
+          <label><input type="radio" name="as-subject" value="사탐"> 사탐</label>
+          <label><input type="radio" name="as-subject" value="과탐"> 과탐</label>
+          <label><input type="radio" name="as-subject" value="사과"> 사과</label>
+          <label><input type="radio" name="as-subject" value=""> 미지정</label>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-sec" onclick="closeModal('add-stu-modal')">취소</button>
+      <button class="btn btn-pri" onclick="saveAddStu()">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PRINT MASK MODAL ══ -->
+<div class="overlay" id="print-mask-modal" onclick="ovClose(event,'print-mask-modal')">
+  <div class="modal modal-sm">
+    <div class="mhd">
+      <span class="mhd-title">🖨 학생용 인쇄 옵션</span>
+      <button class="btn btn-ghost" onclick="closeModal('print-mask-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="font-size:13px;font-weight:600;margin-bottom:16px;color:var(--sl700)">이름 마스킹 처리 여부를 선택하세요</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-pri" style="justify-content:flex-start;padding:12px 16px;font-size:13px"
+          onclick="closeModal('print-mask-modal');executePrint(true)">
+          <span style="font-size:16px">🙈</span>
+          <div style="text-align:left">
+            <div>이름 마스킹 적용</div>
+            <div style="font-size:11px;font-weight:400;opacity:.75">예) 홍길동 → 홍●동 &nbsp;(시험장 공개용)</div>
+          </div>
+        </button>
+        <button class="btn btn-sec" style="justify-content:flex-start;padding:12px 16px;font-size:13px"
+          onclick="closeModal('print-mask-modal');executePrint(false)">
+          <span style="font-size:16px">👁</span>
+          <div style="text-align:left">
+            <div>이름 전체 표시</div>
+            <div style="font-size:11px;font-weight:400;opacity:.75">이름 그대로 인쇄 &nbsp;(내부 관리용)</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -835,8 +905,8 @@ function downloadTemplate(){
 function renderAll(){renderTabs();renderMain();}
 function renderTabs(){
   document.getElementById('tabs').innerHTML=
-    S.rooms.map(r=>{const cnt=roomStu(r.id).length;return`<div class="tab ${r.id===S.active?'on':''}" onclick="switchRoom('${r.id}')">${r.name}<span class="tab-n">${cnt}</span></div>`;}).join('')+
-    `<div class="tab ${S.active==='__stats__'?'on':''}" onclick="switchRoom('__stats__')" style="border-left:1px solid rgba(255,255,255,.1);margin-left:4px">📊 통계</div>`;
+    `<div class="tab ${S.active==='__stats__'?'on':''}" onclick="switchRoom('__stats__')" style="border-right:1px solid rgba(255,255,255,.1);margin-right:4px">📊 통계</div>`+
+    S.rooms.map(r=>{const cnt=roomStu(r.id).length;return`<div class="tab ${r.id===S.active?'on':''}" onclick="switchRoom('${r.id}')">${r.name}<span class="tab-n">${cnt}</span></div>`;}).join('');
 }
 function renderMain(){
   if(S.active==='__stats__'){renderStats();return;}
@@ -847,12 +917,8 @@ function renderMain(){
   document.getElementById('exam-row').style.display='';
   refreshExamDD(room);
   document.getElementById('edit-mode-btn').classList.toggle('on',S.editStudentMode);
-  const sb=document.getElementById('swap-bar');
-  if(S.swap){
-    const ss=seatStu(S.swap.roomId,S.swap.n);
-    document.getElementById('swap-msg').textContent=ss?`"${ss.이름}" 선택 → 이동할 자리 클릭/드래그`:'빈 좌석 선택 → 이동할 자리 클릭';
-    sb.classList.add('on');
-  }else sb.classList.remove('on');
+  // swap bar 숨김 (swap 기능 제거됨)
+  document.getElementById('swap-bar').classList.remove('on');
   if(S.view==='edit') renderEdit(room);
   else renderGrid(room,S.view==='proctor');
 }
@@ -904,8 +970,9 @@ function renderGrid(room,isProctor){
               <div class="s-name"><span class="name-full">${stu.이름}</span><span class="name-mask">${maskName(stu.이름)}</span></div>`;
       if(isProctor) inner+=`<div class="bdgs">${gBdg(stu)}${tBdg(stu)}</div>`;
     }else inner+=`<div class="s-empty">·</div>`;
-    const ddSrc=(stu&&S.editStudentMode)?`draggable="true" ondragstart="onDragStart(event,'seat','${room.id}',${cell.n},${stu._i})" ondragend="onDragEnd(event)"`:'';
-    const ddTgt=S.editStudentMode?`ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${room.id}',${cell.n})"`:'';    html+=`<div class="sc ${cls}" style="width:${seatW}px;min-height:72px" ${ddSrc} ${ddTgt} onclick="clickSeat('${room.id}',${cell.n})">${inner}</div>`;
+    const ddSrc=stu?`draggable="true" ondragstart="onDragStart(event,'seat','${room.id}',${cell.n},${stu._i})" ondragend="onDragEnd(event)"`:'';
+    const ddTgt=`ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${room.id}',${cell.n})"`;
+    html+=`<div class="sc ${cls}" style="width:${seatW}px;min-height:72px" ${ddSrc} ${ddTgt} onclick="clickSeat('${room.id}',${cell.n})">${inner}</div>`;
   });
 
   const ua=stus.filter(s=>!validNs.has(+s.자리));
@@ -962,7 +1029,8 @@ function saveNotice(roomId,val){
 function uaHtml(room,ua){
   const chips=ua.map(s=>`
     <div class="ua-chip ${s._mismatch?'mismatch':''}"
-      ${S.editStudentMode?`draggable="true" ondragstart="onDragStart(event,'unassigned','${room.id}',0,${s._i})" ondragend="onDragEnd(event)"`:''}
+      draggable="true"
+      ondragstart="onDragStart(event,'unassigned','${room.id}',0,${s._i})" ondragend="onDragEnd(event)"
       onclick="openEditStu(${s._i})" title="${s._mismatch?'다른 강의실로 지정된 학생':'미배정 학생'}">
       ${s._mismatch?'⚠ ':''}${gBdg(s)}${tBdg(s)}<span>${s.이름}</span><span class="ua-mini">${s.학번}</span>
       ${s._mismatch?`<span class="ua-mini" style="color:#ef4444">(${s.고사장||'?'})</span>`:''}
@@ -1130,11 +1198,21 @@ function clickSeat(roomId,n){
   if(S.view==='edit') return;
   const cell=getRoom(roomId)?.cells.find(c=>c.n===n);
   if(cell?.state==='blocked') return;
-  if(S.editStudentMode){const stu=seatStu(roomId,n);if(stu){openEditStu(stu._i);}return;}
-  if(!S.swap){S.swap={roomId,n};renderMain();}
-  else{
-    if(S.swap.roomId===roomId&&S.swap.n===n){cancelSwap();return;}
-    doSwap(S.swap.roomId,S.swap.n,roomId,n);S.swap=null;renderAll();
+
+  if(!S.editStudentMode){
+    // 개별편집 모드 아닐 때 — 안내 토스트만
+    toast('✎ 개별편집 버튼을 먼저 켜주세요','err');
+    return;
+  }
+
+  // 개별편집 모드
+  const stu=seatStu(roomId,n);
+  if(stu){
+    // 학생 있는 좌석 → 정보 수정 / 이동 모달
+    openEditStu(stu._i);
+  } else {
+    // 빈 좌석 → 수기 학생 등록
+    openAddStu(roomId,n);
   }
 }
 function doSwap(rA,nA,rB,nB){
@@ -1242,7 +1320,40 @@ function saveRoomExam(){
   room.examType=pendingExam;saveAll();renderMain();toast(`${room.name}: "${pendingExam||'없음'}" 저장`,'ok');
 }
 
-/* ═══ EDIT STUDENT ═══ */
+/* ═══ MANUAL ADD STUDENT ═══ */
+let _addStuRoom=null, _addStuN=0;
+function openAddStu(roomId, n){
+  _addStuRoom=roomId; _addStuN=n;
+  const room=getRoom(roomId);
+  const cell=room?.cells.find(c=>c.n===n);
+  document.getElementById('as-header').textContent=`${roomId} · ${cell?cell.dn+'번 (표시)':'?번'} 좌석에 학생 등록`;
+  document.getElementById('as-name').value='';
+  document.getElementById('as-hak').value='';
+  document.getElementById('as-ban').value='';
+  document.getElementById('as-bancode').value='';
+  document.querySelectorAll('[name="as-gender"]').forEach(r=>r.checked=r.value==='');
+  document.querySelectorAll('[name="as-subject"]').forEach(r=>r.checked=r.value==='');
+  openModal('add-stu-modal');
+  setTimeout(()=>document.getElementById('as-name').focus(),100);
+}
+function saveAddStu(){
+  const name=document.getElementById('as-name').value.trim();
+  const hak =document.getElementById('as-hak').value.trim();
+  if(!name||!hak){toast('이름과 학번은 필수입니다','err');return;}
+  const newIdx=S.students.length;
+  S.students.push({
+    _i:newIdx, _mismatch:false,
+    이름:name, 학번:hak,
+    반:document.getElementById('as-ban').value.trim(),
+    반코드:document.getElementById('as-bancode').value.trim(),
+    성별:document.querySelector('[name="as-gender"]:checked')?.value||'',
+    탐구:document.querySelector('[name="as-subject"]:checked')?.value||'',
+    수학선택:'',
+    고사장:_addStuRoom, 자리:_addStuN,
+  });
+  saveAll(); renderAll(); closeModal('add-stu-modal');
+  toast(`${name} 등록 완료`,'ok');
+}
 function toggleEditStudentMode(){
   S.editStudentMode=!S.editStudentMode;
   if(S.editStudentMode) cancelSwap();
@@ -1363,13 +1474,31 @@ function doPrint(){
   const isStudent = S.view==='student';
   const isProctor = S.view==='proctor';
   if(!isStudent && !isProctor){ toast('학생용 또는 시감자용 화면에서 인쇄하세요','err'); return; }
+  if(isStudent){
+    openModal('print-mask-modal'); // 마스킹 선택 후 executePrint 호출
+    return;
+  }
+  executePrint(false); // 시감자용은 바로 인쇄
+}
+
+function executePrint(maskNames){
+  const isProctor = S.view==='proctor';
 
   const styleId='__pstyle';
   document.getElementById(styleId)?.remove();
   const st=document.createElement('style');
   st.id=styleId;
 
-  if(isStudent){
+  if(isProctor){
+    document.body.className='pp';
+    st.textContent=`@media print{
+      @page{size:A4 portrait;margin:6mm}
+      .name-full{display:inline!important}
+      .name-mask{display:none!important}
+      .cc-bar{display:flex!important}
+      .info-bar{display:flex!important}
+    }`;
+  } else if(maskNames){
     document.body.className='ps';
     st.textContent=`@media print{
       @page{size:A4 portrait;margin:6mm}
@@ -1378,13 +1507,12 @@ function doPrint(){
       .info-bar,.cc-bar{display:none!important}
     }`;
   } else {
-    document.body.className='pp';
+    document.body.className='';
     st.textContent=`@media print{
       @page{size:A4 portrait;margin:6mm}
       .name-full{display:inline!important}
       .name-mask{display:none!important}
-      .cc-bar{display:flex!important}
-      .info-bar{display:flex!important}
+      .info-bar,.cc-bar{display:none!important}
     }`;
   }
   document.head.appendChild(st);
