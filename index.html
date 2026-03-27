@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>강남대성퀘타 모의고사 좌석배치</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -130,7 +130,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .edit-student-mode .sc.has-student:hover{border-color:var(--amber)!important;box-shadow:0 0 0 2px var(--amber-lt)!important}
 
 .sn-wrap{position:absolute;top:3px;right:4px}
-.sn{font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;
+.sn{font-family:'Noto Sans KR',sans-serif;font-size:10px;font-weight:700;
   background:var(--sl200);color:var(--sl600,#475569);
   padding:1px 5px;border-radius:4px;line-height:1.4;display:inline-block}
 .sc.male .sn{background:#bfdbfe;color:#1e40af}
@@ -138,7 +138,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .sc.blocked .sn{background:var(--sl100);color:var(--sl300)}
 .s-ban{font-size:9px;font-weight:800;color:var(--blue);margin-top:15px;line-height:1.2}
 .s-hak{font-size:10px;font-weight:600;color:var(--sl700);line-height:1.4;
-  font-family:'Roboto Mono',monospace;letter-spacing:-.02em}
+  font-family:'Noto Sans KR',sans-serif;letter-spacing:-.02em}
 .s-name{font-size:13px;font-weight:800;color:var(--ink);line-height:1.3;margin-top:1px}
 .s-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--sl200);font-size:12px;margin-top:10px}
 .s-blocked-lbl{font-size:9px;font-weight:700;color:var(--sl300);flex:1;display:flex;align-items:center;justify-content:center;margin-top:13px}
@@ -174,7 +174,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .edit-ctrl{display:flex;align-items:center;gap:10px;padding:8px 15px;border-bottom:1px solid var(--sl200);flex-wrap:wrap;background:var(--sl50)}
 .ctrl-grp{display:flex;align-items:center;gap:5px}
 .ctrl-lbl{font-size:11px;font-weight:700;color:var(--sl500)}
-.ctrl-val{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:700;min-width:24px;text-align:center;color:var(--ink)}
+.ctrl-val{font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;min-width:24px;text-align:center;color:var(--ink)}
 .pm-btn{width:26px;height:26px;border-radius:5px;border:1.5px solid var(--sl200);
   background:var(--white);font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;
   cursor:pointer;transition:all .1s;color:var(--ink-lt)}
@@ -189,9 +189,9 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .ec.void:hover{background:var(--sl100)}
 .ec.active{background:var(--blue-lt);border-color:#93c5fd}.ec.active:hover{background:#bfdbfe}
 .ec.blocked{background:#fff7ed;border-color:#fed7aa}.ec.blocked:hover{background:#fde68a}
-.ec-dn{font-family:'Roboto Mono',monospace;font-size:10px;font-weight:700;color:var(--blue)}
+.ec-dn{font-family:'Noto Sans KR',sans-serif;font-size:10px;font-weight:700;color:var(--blue)}
 .ec.blocked .ec-dn{color:var(--orange)}.ec.void .ec-dn{color:transparent}
-.ec-n{font-family:'Roboto Mono',monospace;font-size:7px;font-weight:500;color:rgba(37,99,235,.45);line-height:1}
+.ec-n{font-family:'Noto Sans KR',sans-serif;font-size:7px;font-weight:500;color:rgba(37,99,235,.45);line-height:1}
 .ec.blocked .ec-n{color:transparent}
 
 /* STATS */
@@ -199,7 +199,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .ssub{font-size:11px;color:var(--sl400);margin-bottom:4px}
 .srow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--sl100);font-size:12px}
 .srow:last-child{border-bottom:none}
-.srow-val{font-weight:700;font-family:'Roboto Mono',monospace}
+.srow-val{font-weight:700;font-family:'Noto Sans KR',sans-serif}
 .stbl{width:100%;border-collapse:collapse;font-size:12px}
 .stbl th{text-align:left;font-size:10px;font-weight:700;color:var(--sl400);letter-spacing:.04em;
   padding:4px 8px;border-bottom:1px solid var(--sl200);text-transform:uppercase}
@@ -1577,18 +1577,18 @@ function printAll(mode, maskNames=false){
       if(cell.state==='void'){ cardsHTML+=`<div style="width:8px"></div>`; return; }
       if(cell.state==='blocked'){
         cardsHTML+=`<div style="width:${seatW}px;min-height:60px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fafafa;position:relative;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94a3b8">
-          <span style="position:absolute;top:3px;right:4px;font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;color:#94a3b8">${cell.dn}</span>미사용</div>`; return;
+          <span style="position:absolute;top:3px;right:4px;font-family:'Noto Sans KR',sans-serif;font-size:9px;font-weight:700;color:#94a3b8">${cell.dn}</span>미사용</div>`; return;
       }
       const stu = seatStu(room.id, cell.n);
       const bg = stu ? (stu.성별==='남'?'#eff6ff':stu.성별==='여'?'#fdf4ff':'#f8fafc') : '#f8fafc';
       const bd = stu ? (stu.성별==='남'?'#93c5fd':stu.성별==='여'?'#d8b4fe':'#e2e8f0') : '#e2e8f0';
       const snColor = stu ? (stu.성별==='남'?'#60a5fa':stu.성별==='여'?'#c084fc':'#94a3b8') : '#94a3b8';
 
-      let inner = `<span style="position:absolute;top:3px;right:4px;font-family:'Roboto Mono',monospace;font-size:9px;font-weight:700;color:${snColor}">${cell.dn}</span>`;
+      let inner = `<span style="position:absolute;top:3px;right:4px;font-family:'Noto Sans KR',sans-serif;font-size:9px;font-weight:700;color:${snColor}">${cell.dn}</span>`;
       if(stu){
         const nameDisp = (isStudent && maskNames) ? maskName(stu.이름) : stu.이름;
         inner += `<div style="font-size:8px;font-weight:800;color:#2563eb;margin-top:14px;line-height:1.2">${stu.반코드||''}</div>
-                  <div style="font-size:9px;font-weight:600;color:#475569;font-family:'Roboto Mono',monospace;line-height:1.3">${stu.학번}</div>
+                  <div style="font-size:9px;font-weight:600;color:#475569;font-family:'Noto Sans KR',sans-serif;line-height:1.3">${stu.학번}</div>
                   <div style="font-size:12px;font-weight:800;color:#0b1120;line-height:1.3;margin-top:1px">${nameDisp}</div>`;
         if(!isStudent){
           const gb = stu.성별==='남'?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;background:#dbeafe;color:#1e40af">남</span>`
