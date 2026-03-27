@@ -552,8 +552,25 @@ let _syncing=false;    // prevent feedback loop from onSnapshot
 
 /* ═══ FIRESTORE SAVE (debounced 800ms) ═══ */
 function saveAll(){
+  // 배열편집 모드일 땐 로컬 임시저장만 — Firebase엔 올리지 않음
+  if(S.view==='edit'){
+    saveTempLocal();
+    return;
+  }
+  pushToFirebase();
+}
+
+// 로컬 임시저장 (배열편집 중 변경사항 보존용, Firebase X)
+function saveTempLocal(){
+  try{ localStorage.setItem('qtt_temp', JSON.stringify({rooms:S.rooms})); }catch(e){}
+}
+
+// 실제 Firebase 저장
+function pushToFirebase(){
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(()=>{
+    const stat=document.getElementById('sync-stat');
+    if(stat){stat.textContent='저장 중...';stat.style.color='#fde68a';}
     const payload={
       rooms:S.rooms,
       students:S.students,
@@ -561,8 +578,17 @@ function saveAll(){
       snapshots:S.snapshots,
       updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
     };
-    DOC.set(payload).catch(e=>console.error('Firestore 저장 오류:',e));
-  },800);
+    DOC.set(payload)
+      .then(()=>{ if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';} })
+      .catch(e=>{ console.error('Firestore 저장 오류:',e);
+        if(stat){stat.textContent='⚠ 저장 실패';stat.style.color='#fca5a5';} });
+  },400);
+}
+
+// 배열편집 화면에서 수동 저장 버튼용
+function saveLayoutNow(){
+  pushToFirebase();
+  toast('강의실 배열을 서버에 저장했습니다 ✅','ok');
 }
 
 /* ═══ LOAD FROM FIRESTORE + REALTIME SYNC ═══ */
@@ -1055,7 +1081,11 @@ function renderEdit(room){
     <div class="card">
       <div class="card-hd">
         <div class="card-title">⚙ ${room.name} 배열 편집</div>
-        <button class="btn btn-sec btn-sm" onclick="allState('${room.id}','active')">전체 활성</button>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--amber);font-weight:600">※ 수정 후 반드시 저장 버튼을 눌러주세요</span>
+          <button class="btn btn-sec btn-sm" onclick="allState('${room.id}','active')">전체 활성</button>
+          <button class="btn btn-pri btn-sm" onclick="saveLayoutNow()">💾 배열 저장 (서버 반영)</button>
+        </div>
       </div>
       <div class="edit-hint">
         클릭 순환: <b>활성</b>(파랑) → <b>미사용</b>(주황, 번호 있음) → <b>없음</b>(회색, 빈 공간) → 활성<br>
@@ -1392,20 +1422,6 @@ document.addEventListener('keydown',e=>{
     document.querySelectorAll('.overlay.on').forEach(o=>o.classList.remove('on'));
   }
 });
-
-/* ═══ SYNC STATUS ═══ */
-// 저장 중일 때 헤더에 표시
-const _origSaveAll=saveAll;
-// wrap saveAll to show sync indicator
-(()=>{
-  const origSave=saveAll;
-  window.saveAll=function(){
-    const stat=document.getElementById('sync-stat');
-    if(stat){stat.textContent='저장 중...';stat.style.color='#fde68a';}
-    origSave();
-    setTimeout(()=>{if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';}},1000);
-  };
-})();
 
 /* ═══ INIT ═══ */
 // onSnapshot 내부에서 renderAll()을 호출하므로 load()만 호출
