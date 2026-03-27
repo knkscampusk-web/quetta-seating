@@ -6,6 +6,9 @@
 <title>강남대성퀘타 모의고사 좌석배치</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --ink:#0b1120;--ink-lt:#1e293b;--blue:#2563eb;--blue-lt:#dbeafe;
@@ -329,6 +332,7 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
     <span class="logo-title">강남대성퀘타 모의고사 좌석배치</span>
   </div>
   <div class="hdr-right">
+    <span id="sync-stat" style="font-size:10px;font-weight:600;color:#86efac;opacity:.8"></span>
     <button class="btn btn-hdr btn-sm" onclick="openUplModal('all')">📤 전체 업로드</button>
     <button class="btn btn-hdr btn-sm" onclick="doSaveSnap()">💾 저장</button>
     <button class="btn btn-hdr btn-sm" onclick="openSettings()">⚙ 설정</button>
@@ -515,13 +519,24 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
 <div id="toast"></div>
 
 <script>
+/* ═══ FIREBASE INIT ═══ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCbHwOifJ_ajPyxr66uTUpqugDl5GW8tOY",
+  authDomain: "quetta-seating.firebaseapp.com",
+  projectId: "quetta-seating",
+  storageBucket: "quetta-seating.firebasestorage.app",
+  messagingSenderId: "804478055238",
+  appId: "1:804478055238:web:1513972a9df85405f7ab47"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const DOC = db.collection('quetta').doc('state');
+
 /* ═══ STATE ═══ */
-const KEY='qtt_v9';
 const DEF_ROOMS=['L01호','101호','102호','201호','202호','203호','204호','301호','302호','303호','304호'];
 
 let S={
   rooms:[],students:[],
-  // examTypes: [{name, date}]
   examTypes:[
     {name:'3월 모의고사',date:''},{name:'4월 모의고사',date:''},{name:'6월 모의고사',date:''},
     {name:'7월 모의고사',date:''},{name:'9월 모의고사',date:''},{name:'10월 모의고사',date:''},
@@ -532,19 +547,66 @@ let S={
 };
 let pendingExam='',_rzId=null,dragSrc=null,_editStuIdx=null,_uploadRoomId='all';
 let _statsExam='all';
+let _saveTimer=null;   // debounce timer
+let _syncing=false;    // prevent feedback loop from onSnapshot
 
-/* ═══ PERSISTENCE ═══ */
-function saveAll(){try{localStorage.setItem(KEY,JSON.stringify({rooms:S.rooms,students:S.students,examTypes:S.examTypes,snapshots:S.snapshots}));}catch(e){}}
+/* ═══ FIRESTORE SAVE (debounced 800ms) ═══ */
+function saveAll(){
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>{
+    const payload={
+      rooms:S.rooms,
+      students:S.students,
+      examTypes:S.examTypes,
+      snapshots:S.snapshots,
+      updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    DOC.set(payload).catch(e=>console.error('Firestore 저장 오류:',e));
+  },800);
+}
+
+/* ═══ LOAD FROM FIRESTORE + REALTIME SYNC ═══ */
 function load(){
-  try{
-    const d=JSON.parse(localStorage.getItem(KEY)||'{}');
-    if(d.rooms?.length)    S.rooms    =d.rooms.map(migrateRoom);
-    if(d.students?.length) S.students =d.students;
-    if(d.examTypes?.length)S.examTypes=d.examTypes.map(et=>typeof et==='string'?{name:et,date:''}:et);
-    if(d.snapshots?.length)S.snapshots=d.snapshots;
-  }catch(e){}
-  if(!S.rooms.length) S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));
-  S.active=S.rooms[0]?.id||null;
+  // 로딩 인디케이터 표시
+  document.getElementById('main').innerHTML=`
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+      height:60vh;gap:16px;color:var(--sl400)">
+      <div style="font-size:32px;animation:spin 1s linear infinite">⟳</div>
+      <div style="font-size:14px;font-weight:600">Firebase에서 데이터 불러오는 중...</div>
+    </div>
+    <style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>`;
+
+  // 실시간 리스너 — 누군가 저장하면 모든 접속자 화면이 자동 갱신
+  DOC.onSnapshot(snap=>{
+    if(_syncing) return; // 내가 저장 중일 땐 무시
+    if(snap.exists){
+      const d=snap.data();
+      // UI 선택 상태(active, view, swap 등)는 유지하고 데이터만 갱신
+      const prevActive=S.active;
+      if(d.rooms?.length)     S.rooms    =d.rooms.map(migrateRoom);
+      if(d.students?.length)  S.students =d.students;
+      else if(d.students)     S.students =[];
+      if(d.examTypes?.length) S.examTypes=d.examTypes.map(et=>typeof et==='string'?{name:et,date:''}:et);
+      if(d.snapshots?.length) S.snapshots=d.snapshots;
+      else if(d.snapshots)    S.snapshots=[];
+      // active room 유지 (없으면 첫 번째로)
+      if(!S.active||!S.rooms.find(r=>r.id===S.active))
+        S.active=S.rooms[0]?.id||null;
+    } else {
+      // 최초 접속 — 기본 강의실 세팅 후 저장
+      S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));
+      S.active=S.rooms[0]?.id||null;
+      saveAll();
+    }
+    renderAll();
+  }, err=>{
+    console.error('Firestore 리스너 오류:',err);
+    document.getElementById('main').innerHTML=
+      `<div style="padding:40px;text-align:center;color:#991b1b">
+        ❌ Firebase 연결 오류: ${err.message}<br>
+        <small style="color:var(--sl400)">네트워크 연결 또는 Firebase 설정을 확인하세요.</small>
+      </div>`;
+  });
 }
 function migrateRoom(r){
   if(!r.cells) r.cells=mkCells(r.rows||8,r.cols||9);
@@ -1272,7 +1334,7 @@ function doPrint(){
   });
 }
 
-/* ═══ RESET (assignments only — layouts preserved) ═══ */
+/* ═══ RESET ═══ */
 function confirmReset(){
   if(!confirm('배정된 학생 데이터를 초기화합니다.\n강의실 배열은 유지됩니다.\n\n계속하시겠습니까?')) return;
   if(!confirm('⚠ 이 작업은 되돌릴 수 없습니다.\n정말 초기화하시겠습니까?')) return;
@@ -1301,8 +1363,23 @@ document.addEventListener('keydown',e=>{
   }
 });
 
+/* ═══ SYNC STATUS ═══ */
+// 저장 중일 때 헤더에 표시
+const _origSaveAll=saveAll;
+// wrap saveAll to show sync indicator
+(()=>{
+  const origSave=saveAll;
+  window.saveAll=function(){
+    const stat=document.getElementById('sync-stat');
+    if(stat){stat.textContent='저장 중...';stat.style.color='#fde68a';}
+    origSave();
+    setTimeout(()=>{if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';}},1000);
+  };
+})();
+
 /* ═══ INIT ═══ */
-load();renderAll();
+// onSnapshot 내부에서 renderAll()을 호출하므로 load()만 호출
+load();
 </script>
 </body>
 </html>
