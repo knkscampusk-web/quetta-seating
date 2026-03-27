@@ -362,11 +362,11 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
   <button class="edit-mode-btn" id="edit-mode-btn" onclick="toggleEditStudentMode()">✎ 개별편집</button>
   <div class="bar-sep"></div>
   <span id="bar-stat"></span>
-  <button class="btn btn-sec btn-sm" onclick="openUplModal(S.active)">📤 강의실 업로드</button>
+  <button class="btn btn-sec btn-sm" onclick="openUplModal(S.active)">📤 명단 업로드</button>
   <button class="btn btn-sec btn-sm" onclick="doPrint()">🖨 인쇄</button>
   <div style="width:1px;height:18px;background:var(--sl200);margin:0 2px"></div>
-  <button class="btn btn-sec btn-sm" onclick="printAll('student')" title="전체 강의실 학생용 한번에 인쇄">🖨 전체·학생</button>
-  <button class="btn btn-sec btn-sm" onclick="printAll('proctor')" title="전체 강의실 시감자용 한번에 인쇄">🖨 전체·시감</button>
+  <button class="btn btn-sec btn-sm" onclick="printAll('student')" title="전체 강의실 학생용 한번에 인쇄">🖨 전체인쇄(학생)</button>
+  <button class="btn btn-sec btn-sm" onclick="printAll('proctor')" title="전체 강의실 시감자용 한번에 인쇄">🖨 전체인쇄(시감)</button>
 </div>
 
 <!-- SWAP BAR -->
@@ -941,7 +941,6 @@ function renderGrid(room,isProctor){
           ${room.examType?`<span style="font-size:11px;font-weight:700;color:var(--blue)">${room.examType}</span>`:''}
           <span class="card-sub">${isProctor?'시감자용 · 위아래 반전':'학생용'}</span>
         </div>
-        <button class="btn btn-sec btn-sm" onclick="openUplModal('${room.id}')">📤 업로드</button>
       </div>
       ${infoBar}
       ${ccBar}
@@ -1152,6 +1151,12 @@ function cancelSwap(){S.swap=null;renderMain();}
 
 /* ═══ DRAG & DROP ═══ */
 function onDragStart(e,type,roomId,cellN,stuIdx){
+  // 개별편집 모드가 아니면 드래그 차단
+  if(!S.editStudentMode){
+    e.preventDefault();
+    toast('✎ 개별편집 버튼을 먼저 켜주세요','err');
+    return false;
+  }
   dragSrc={type,roomId,cellN,stuIdx};
   e.dataTransfer.effectAllowed='move';
   e.dataTransfer.setData('text/plain','drag');
@@ -1355,49 +1360,32 @@ function setView(v){
   else renderMain();
 }
 function doPrint(){
-  if(S.view==='student'){
-    // 마스킹 선택 모달 표시
-    openModal('print-mask-modal');
-  } else {
-    executePrint(false);
-  }
-}
-function executePrint(mask){
-  _printMask=mask;
-  document.body.className=mask?'ps':'pp-no-mask';
+  const isStudent = S.view==='student';
+  const isProctor = S.view==='proctor';
+  if(!isStudent && !isProctor){ toast('학생용 또는 시감자용 화면에서 인쇄하세요','err'); return; }
 
   const styleId='__pstyle';
   document.getElementById(styleId)?.remove();
   const st=document.createElement('style');
   st.id=styleId;
-  // masking rule 동적 적용
-  if(mask){
-    st.textContent=`
-      @media print{
-        @page{size:A4 portrait;margin:6mm}
-        .name-full{display:none!important}
-        .name-mask{display:inline!important}
-        .info-bar,.cc-bar{display:none!important}
-      }`;
+
+  if(isStudent){
+    document.body.className='ps';
+    st.textContent=`@media print{
+      @page{size:A4 portrait;margin:6mm}
+      .name-full{display:none!important}
+      .name-mask{display:inline!important}
+      .info-bar,.cc-bar{display:none!important}
+    }`;
   } else {
-    st.textContent=`
-      @media print{
-        @page{size:A4 portrait;margin:6mm}
-        .name-full{display:inline!important}
-        .name-mask{display:none!important}
-        .info-bar,.cc-bar{display:none!important}
-      }`;
-  }
-  // 시감자용 (proctor)
-  if(S.view==='proctor'){
-    st.textContent=`
-      @media print{
-        @page{size:A4 portrait;margin:6mm}
-        .name-full{display:inline!important}
-        .name-mask{display:none!important}
-        .cc-bar{display:flex!important}
-        .info-bar{display:flex!important}
-      }`;
+    document.body.className='pp';
+    st.textContent=`@media print{
+      @page{size:A4 portrait;margin:6mm}
+      .name-full{display:inline!important}
+      .name-mask{display:none!important}
+      .cc-bar{display:flex!important}
+      .info-bar{display:flex!important}
+    }`;
   }
   document.head.appendChild(st);
 
