@@ -751,16 +751,16 @@ function _updateUndoBtn(){
 }
 
 /* ═══ SHIFT HELPERS ═══ */
-// 활성 좌석을 dn(화면 표시·가로순) 순서로 정렬해서 반환
-function activeCellsDn(roomId){
+// 활성 좌석을 n(업로드 번호·세로순) 순서로 정렬해서 반환
+function activeCellsByN(roomId){
   return getRoom(roomId).cells
-    .filter(c=>c.state==='active'&&c.dn!=null&&c.n!=null)
-    .sort((a,b)=>a.dn-b.dn); // dn = 가로(행)순 표시번호
+    .filter(c=>c.state==='active'&&c.n!=null)
+    .sort((a,b)=>a.n-b.n); // n = 업로드 순서(세로순) 기준
 }
-// fromDn(포함)부터 뒤 학생들을 한 칸씩 뒤로 밀기 (dn = 화면 표시 순서 기준)
-function shiftForwardFrom(roomId,fromDn){
-  const cells=activeCellsDn(roomId);
-  const fromIdx=cells.findIndex(c=>c.dn===fromDn);
+// fromN(포함)부터 뒤 학생들을 한 칸씩 뒤로 밀기 (업로드 번호 순 기준)
+function shiftForwardFrom(roomId,fromN){
+  const cells=activeCellsByN(roomId);
+  const fromIdx=cells.findIndex(c=>c.n===fromN);
   if(fromIdx<0) return;
   // 뒤에서부터 처리해야 덮어쓰기 없음
   for(let i=cells.length-1;i>=fromIdx;i--){
@@ -770,14 +770,14 @@ function shiftForwardFrom(roomId,fromDn){
     else stu.자리=cells[i+1].n;
   }
 }
-// fromDn(포함)부터 뒤 학생들을 한 칸씩 앞으로 당기기 (dn = 화면 표시 순서 기준)
-function shiftBackFrom(roomId,fromDn){
-  const cells=activeCellsDn(roomId);
-  const fromIdx=cells.findIndex(c=>c.dn===fromDn);
+// fromN(포함)부터 뒤 학생들을 한 칸씩 앞으로 당기기 (업로드 번호 순 기준)
+function shiftBackFrom(roomId,fromN){
+  const cells=activeCellsByN(roomId);
+  const fromIdx=cells.findIndex(c=>c.n===fromN);
   if(fromIdx<0) return;
   for(let i=fromIdx;i<cells.length-1;i++){
     const nextStu=seatStu(roomId,cells[i+1].n);
-    if(!nextStu) continue; // 빈 자리 건너뜀(continue) → 비연속 구간도 처리
+    if(!nextStu) continue; // 빈 자리 건너뜀
     nextStu.자리=cells[i].n;
   }
 }
@@ -1308,14 +1308,14 @@ function forceMoveStu(){
     stu.고사장=tRid;stu.자리=tCell.n;stu._mismatch=false;
     toast(`${stu.이름} → ${tRid} ${tDn}번 (단독 이동)`,'ok');
   } else if(shiftMode==='push'){
-    // 핵심 수정: stu를 먼저 제거하고 shift → stu 원래 자리가 밀리지 않음
+    // 핵심: stu 먼저 제거 → tCell.n부터 뒤로 밀기 → stu를 tCell.n에 배정
     stu.고사장='';stu.자리=0;
-    shiftForwardFrom(tRid,tDn);
+    shiftForwardFrom(tRid,tCell.n); // n(업로드순) 기준으로 밀기
     stu.고사장=tRid;stu.자리=tCell.n;stu._mismatch=false;
     toast(`${stu.이름} → ${tRid} ${tDn}번 (이후 학생 밀기)`,'ok');
   } else if(shiftMode==='pull'){
     stu.고사장='';stu.자리=0;
-    if(srcRid===tRid&&srcCell) shiftBackFrom(srcRid,srcCell.dn);
+    if(srcRid===tRid&&srcCell) shiftBackFrom(srcRid,srcCell.n); // n(업로드순) 기준으로 당기기
     const disp2=S.students.find(s=>s.고사장===tRid&&+s.자리===tCell.n);
     if(disp2){disp2.고사장='';disp2.자리=0;}
     stu.고사장=tRid;stu.자리=tCell.n;stu._mismatch=false;
@@ -1326,11 +1326,11 @@ function forceMoveStu(){
 function deleteStu(mode){
   const stu=S.students.find(s=>s._i===_editStuIdx);if(!stu) return;
   const roomId=stu.고사장,stuN=+stu.자리;
-  const cell=getRoom(roomId)?.cells.find(c=>c.n===stuN);
+  // stuN이 이미 n(업로드번호) — 직접 사용
   saveUndo(); // ← undo 저장
-  if(mode==='pull'&&cell){
+  if(mode==='pull'){
     stu.고사장='';stu.자리=0;
-    shiftBackFrom(roomId,cell.dn);
+    shiftBackFrom(roomId,stuN); // n(업로드순) 기준으로 당기기
     toast(`${stu.이름} 삭제 + 뒤 학생 당기기 완료`,'ok');
   } else {
     stu.고사장='';stu.자리=0;
@@ -1340,12 +1340,11 @@ function deleteStu(mode){
 }
 function insertBeforeStu(){
   const stu=S.students.find(s=>s._i===_editStuIdx);if(!stu) return;
-  const roomId=stu.고사장,stuN=+stu.자리;
-  const cell=getRoom(roomId)?.cells.find(c=>c.n===stuN);
-  if(!cell){toast('현재 좌석 정보 없음','err');return;}
+  const stuN=+stu.자리; // n(업로드번호) 직접 사용
+  if(!stuN){toast('현재 좌석 정보 없음','err');return;}
   saveUndo(); // ← undo 저장
-  shiftForwardFrom(roomId,cell.dn);
-  toast(`${stu.이름} 앞에 빈 자리 삽입 (이후 학생 한 칸 밀림)`,'ok');
+  shiftForwardFrom(stu.고사장,stuN); // n(업로드순) 기준으로 밀기
+  toast(`앞에 빈 자리 삽입 — 이 학생부터 뒤로 한 칸씩 밀림`,'ok');
   saveAll();renderAll();closeModal('edit-stu-modal');
 }
 
