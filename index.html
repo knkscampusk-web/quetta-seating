@@ -23,8 +23,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--sl100);color:var(--i
 button{font-family:inherit;cursor:pointer}
 input,select,textarea{font-family:inherit;cursor:auto}
 ::selection{background:var(--blue-lt);color:var(--blue)}
-
-/* HEADER */
 #hdr{position:sticky;top:0;z-index:200;background:var(--ink);height:52px;
   display:flex;align-items:center;justify-content:space-between;padding:0 14px;
   box-shadow:0 2px 16px rgba(0,0,0,.4)}
@@ -32,8 +30,6 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .logo-badge{background:var(--teal);color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:4px;letter-spacing:.08em}
 .logo-title{color:rgba(255,255,255,.6);font-size:13px;font-weight:500}
 .hdr-right{display:flex;gap:5px;align-items:center}
-
-/* TABS */
 #tabs{position:sticky;top:52px;z-index:190;background:var(--ink-lt);
   display:flex;overflow-x:auto;padding:0 4px;border-bottom:1px solid rgba(255,255,255,.07);scrollbar-width:none}
 #tabs::-webkit-scrollbar{display:none}
@@ -45,8 +41,6 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .tab-n{font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;
   background:rgba(255,255,255,.1);color:rgba(255,255,255,.45)}
 .tab.on .tab-n{background:var(--teal);color:#fff}
-
-/* TOOLBAR */
 #bar{position:sticky;top:calc(52px + 37px);z-index:180;background:var(--white);
   border-bottom:1px solid var(--sl200);display:flex;align-items:center;gap:7px;
   padding:6px 13px;flex-wrap:wrap}
@@ -63,25 +57,17 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .edit-mode-btn.on{background:var(--amber-lt);border-color:#fde047;color:#92400e}
 .bar-sep{flex:1}
 #bar-stat{font-size:11px;color:var(--sl400);font-weight:500}
-
-/* SWAP BAR */
 #swap-bar{display:none;background:var(--amber-lt);border-bottom:2px solid var(--amber);
   padding:6px 14px;font-size:12px;font-weight:600;color:var(--amber);align-items:center;gap:8px}
 #swap-bar.on{display:flex}
 #swap-cancel{margin-left:auto;background:var(--amber);color:#fff;border:none;border-radius:5px;
   padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer}
-
-/* MAIN */
 #main{padding:13px}
-
-/* CARD */
 .card{background:var(--white);border-radius:10px;border:1px solid var(--sl200);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)}
 .card+.card{margin-top:10px}
 .card-hd{padding:10px 15px;border-bottom:1px solid var(--sl200);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .card-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
 .card-sub{font-size:11px;font-weight:500;color:var(--sl400)}
-
-/* INFO / CLASS BARS */
 .info-bar{padding:6px 15px;background:var(--sl50);border-bottom:1px solid var(--sl200);
   font-size:11px;color:var(--sl700);display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-height:32px}
 .cls-chip{font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;background:var(--blue-lt);color:var(--blue);white-space:nowrap}
@@ -89,37 +75,24 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .cc-bar{padding:5px 15px;background:#f0fdf4;border-bottom:1px solid #bbf7d0;
   font-size:11px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .cc-item{display:flex;align-items:center;gap:2px;padding:2px 8px;background:#dcfce7;border-radius:10px;font-size:10px;font-weight:700;color:var(--green)}
-
-/* NOTICE BAR (screen + print) */
 .notice-bar{padding:6px 15px;background:#fefce8;border-bottom:1px solid #fde68a;
   font-size:11px;color:#78350f;font-weight:600;white-space:pre-wrap;line-height:1.5}
 .notice-input{width:100%;padding:7px 10px;border:1.5px solid var(--sl200);border-radius:7px;
   font-size:12px;resize:vertical;min-height:52px;outline:none;transition:border-color .12s}
 .notice-input:focus{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-lt)}
-
-/* BLACKBOARD */
 .bbar{margin:4px 15px;background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:6px;
   padding:5px 12px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.15em;
   color:rgba(255,255,255,.7);-webkit-print-color-adjust:exact;print-color-adjust:exact}
-
-/* GRID */
 .grid-wrap{padding:5px 15px 14px;overflow-x:auto}
 .sgrid{display:grid;gap:4px;width:fit-content;align-items:start}
-
-/* SEAT CARD */
 .sc{border-radius:7px;border:1.5px solid var(--sl200);background:var(--sl50);
   padding:4px 6px 5px;min-height:72px;width:82px;position:relative;
   cursor:grab;transition:border-color .1s,box-shadow .1s,transform .07s,opacity .15s;
   display:flex;flex-direction:column;gap:1px;user-select:none}
 .sc:hover{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-lt)}
 .sc:active{transform:scale(.97)}
-
-/* VOID: ultra-thin gap, no height */
-.sc.void{width:8px;min-height:72px;border:none!important;background:transparent;
-  padding:0;pointer-events:none;border-radius:0}
-
-.sc.blocked{background:#f8f8f8;border:1.5px solid var(--sl300);cursor:not-allowed;
-  width:82px;min-height:72px}
+.sc.void{width:8px;min-height:72px;border:none!important;background:transparent;padding:0;pointer-events:none;border-radius:0}
+.sc.blocked{background:#f8f8f8;border:1.5px solid var(--sl300);cursor:not-allowed;width:82px;min-height:72px}
 .sc.blocked:hover{border-color:var(--sl300)!important;box-shadow:none!important}
 .sc.male{background:var(--m-bg);border-color:var(--m-bd)}
 .sc.female{background:var(--f-bg);border-color:var(--f-bd)}
@@ -128,29 +101,22 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .sc.dragging{opacity:.35;transform:scale(.96)}
 .edit-student-mode .sc.has-student{cursor:pointer}
 .edit-student-mode .sc.has-student:hover{border-color:var(--amber)!important;box-shadow:0 0 0 2px var(--amber-lt)!important}
-
 .sn-wrap{position:absolute;top:3px;right:4px}
 .sn{font-family:'Noto Sans KR',sans-serif;font-size:10px;font-weight:700;
-  background:var(--sl200);color:var(--sl600,#475569);
-  padding:1px 5px;border-radius:4px;line-height:1.4;display:inline-block}
+  background:var(--sl200);color:#475569;padding:1px 5px;border-radius:4px;line-height:1.4;display:inline-block}
 .sc.male .sn{background:#bfdbfe;color:#1e40af}
 .sc.female .sn{background:#e9d5ff;color:#6b21a8}
 .sc.blocked .sn{background:var(--sl100);color:var(--sl300)}
 .s-ban{font-size:9px;font-weight:800;color:var(--blue);margin-top:15px;line-height:1.2}
-.s-hak{font-size:10px;font-weight:600;color:var(--sl700);line-height:1.4;
-  font-family:'Noto Sans KR',sans-serif;letter-spacing:-.02em}
+.s-hak{font-size:10px;font-weight:600;color:var(--sl700);line-height:1.4}
 .s-name{font-size:13px;font-weight:800;color:var(--ink);line-height:1.3;margin-top:1px}
 .s-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--sl200);font-size:12px;margin-top:10px}
 .s-blocked-lbl{font-size:9px;font-weight:700;color:var(--sl300);flex:1;display:flex;align-items:center;justify-content:center;margin-top:13px}
 .name-mask{display:none}
-
-/* badges */
 .bdgs{display:flex;gap:2px;flex-wrap:wrap;margin-top:2px}
 .bdg{font-size:8px;font-weight:800;padding:1px 4px;border-radius:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .bdg-m{background:#dbeafe;color:#1e40af}.bdg-f{background:#fce7f3;color:#9d174d}
 .bdg-sat{background:#dcfce7;color:#14532d}.bdg-gwt{background:#fef9c3;color:#713f12}.bdg-sag{background:#ede9fe;color:#4c1d95}
-
-/* UNASSIGNED */
 .ua-panel{background:var(--white);border-radius:10px;border:1px solid #fed7aa;margin-top:10px;overflow:hidden}
 .ua-hd{padding:7px 13px;background:#fff7ed;border-bottom:1px solid #fed7aa;
   font-size:11px;font-weight:700;color:#9a3412;display:flex;align-items:center;gap:6px}
@@ -162,8 +128,6 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .ua-chip.mismatch{background:#fef2f2;border-color:#fca5a5;color:#991b1b}
 .ua-chip.mismatch:hover{background:#fee2e2}
 .ua-mini{font-size:10px;color:var(--sl500)}
-
-/* LAYOUT EDITOR */
 .edit-hint{padding:7px 15px;font-size:11px;color:var(--sl700);background:var(--amber-lt);border-bottom:1px solid #fde68a;line-height:1.7}
 .edit-legend{display:flex;gap:12px;padding:7px 15px;border-bottom:1px solid var(--sl200);align-items:center;font-size:11px;flex-wrap:wrap}
 .el-item{display:flex;align-items:center;gap:5px}
@@ -174,7 +138,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .edit-ctrl{display:flex;align-items:center;gap:10px;padding:8px 15px;border-bottom:1px solid var(--sl200);flex-wrap:wrap;background:var(--sl50)}
 .ctrl-grp{display:flex;align-items:center;gap:5px}
 .ctrl-lbl{font-size:11px;font-weight:700;color:var(--sl500)}
-.ctrl-val{font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;min-width:24px;text-align:center;color:var(--ink)}
+.ctrl-val{font-size:13px;font-weight:700;min-width:24px;text-align:center;color:var(--ink)}
 .pm-btn{width:26px;height:26px;border-radius:5px;border:1.5px solid var(--sl200);
   background:var(--white);font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;
   cursor:pointer;transition:all .1s;color:var(--ink-lt)}
@@ -184,22 +148,19 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .ec{width:44px;height:44px;border-radius:5px;border:1.5px solid;
   display:flex;align-items:center;justify-content:center;flex-direction:column;
   cursor:pointer;transition:all .08s;user-select:none}
-/* void in editor: thin */
 .ec.void{width:8px;min-height:44px;border:1px dashed var(--sl200)!important;background:transparent;padding:0;border-radius:2px}
 .ec.void:hover{background:var(--sl100)}
 .ec.active{background:var(--blue-lt);border-color:#93c5fd}.ec.active:hover{background:#bfdbfe}
 .ec.blocked{background:#fff7ed;border-color:#fed7aa}.ec.blocked:hover{background:#fde68a}
-.ec-dn{font-family:'Noto Sans KR',sans-serif;font-size:10px;font-weight:700;color:var(--blue)}
+.ec-dn{font-size:10px;font-weight:700;color:var(--blue)}
 .ec.blocked .ec-dn{color:var(--orange)}.ec.void .ec-dn{color:transparent}
-.ec-n{font-family:'Noto Sans KR',sans-serif;font-size:7px;font-weight:500;color:rgba(37,99,235,.45);line-height:1}
+.ec-n{font-size:7px;font-weight:500;color:rgba(37,99,235,.45);line-height:1}
 .ec.blocked .ec-n{color:transparent}
-
-/* STATS */
 .sbig{font-size:28px;font-weight:900;color:var(--blue);line-height:1}
 .ssub{font-size:11px;color:var(--sl400);margin-bottom:4px}
 .srow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--sl100);font-size:12px}
 .srow:last-child{border-bottom:none}
-.srow-val{font-weight:700;font-family:'Noto Sans KR',sans-serif}
+.srow-val{font-weight:700}
 .stbl{width:100%;border-collapse:collapse;font-size:12px}
 .stbl th{text-align:left;font-size:10px;font-weight:700;color:var(--sl400);letter-spacing:.04em;
   padding:4px 8px;border-bottom:1px solid var(--sl200);text-transform:uppercase}
@@ -209,8 +170,6 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .sub-tag{display:inline-block;font-size:9px;font-weight:800;padding:2px 6px;border-radius:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .sub-sat{background:#dcfce7;color:#14532d}.sub-gwt{background:#fef9c3;color:#713f12}.sub-sag{background:#ede9fe;color:#4c1d95}
 .stats-filter-bar{padding:10px 15px;background:var(--sl50);border-bottom:1px solid var(--sl200);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-
-/* BUTTONS */
 .btn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:6px;border:none;
   font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;white-space:nowrap}
 .btn-hdr{background:rgba(255,255,255,.09);color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.13)}
@@ -222,8 +181,6 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .btn-green{background:var(--green-lt);color:var(--green);border:1px solid #86efac}.btn-green:hover{background:#bbf7d0}
 .btn-amber{background:var(--amber-lt);color:var(--amber);border:1px solid #fde68a}.btn-amber:hover{background:#fde68a}
 .btn-sm{padding:4px 9px;font-size:11px}.btn-xs{padding:3px 7px;font-size:10px}
-
-/* MODAL */
 .overlay{position:fixed;inset:0;background:rgba(11,17,32,.65);backdrop-filter:blur(3px);
   z-index:500;display:flex;align-items:center;justify-content:center;
   opacity:0;pointer-events:none;transition:opacity .18s}
@@ -232,7 +189,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
   overflow-y:auto;box-shadow:0 28px 72px rgba(0,0,0,.25);
   transform:translateY(16px) scale(.98);transition:transform .18s}
 .overlay.on .modal{transform:none}
-.modal-lg{width:720px}.modal-sm{width:380px}
+.modal-lg{width:720px}.modal-sm{width:400px}
 .mhd{padding:14px 18px 12px;border-bottom:1px solid var(--sl200);display:flex;align-items:center;
   justify-content:space-between;position:sticky;top:0;background:var(--white);z-index:1}
 .mhd-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px}
@@ -245,8 +202,6 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .mtab.on{color:var(--blue);border-color:var(--blue)}
 .mtab-pane{display:none;padding:15px 18px}
 .mtab-pane.on{display:block}
-
-/* form */
 .fg{margin-bottom:12px}
 .fl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--sl400);margin-bottom:4px}
 .fi{width:100%;padding:7px 10px;border:1.5px solid var(--sl200);border-radius:8px;font-size:13px;outline:none;transition:border-color .12s}
@@ -256,37 +211,24 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .radio-grp label{display:flex;align-items:center;gap:5px;cursor:pointer;
   padding:5px 11px;border:1.5px solid var(--sl200);border-radius:6px;font-size:12px;font-weight:600;transition:all .12s}
 .radio-grp label:has(input:checked){border-color:var(--blue);background:var(--blue-lt);color:var(--blue)}
-
-/* upload */
 .upl{border:2px dashed var(--sl200);border-radius:10px;padding:22px 20px;text-align:center;cursor:pointer;transition:all .15s}
 .upl:hover{border-color:var(--blue);background:var(--blue-lt)}
 .upl-guide{margin-top:10px;padding:9px 11px;background:var(--amber-lt);border-radius:7px;font-size:11px;line-height:1.8;color:#78350f}
 .upl-msg{margin-top:8px;font-size:12px;font-weight:600;min-height:18px}
-
-/* list items */
 .li-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--sl200);border-radius:8px;margin-bottom:6px;transition:background .1s}
 .li-item:hover{background:var(--sl50)}
 .li-name{flex:1;font-size:13px;font-weight:600}
 .li-sub{font-size:11px;color:var(--sl400)}
 .empty-state{text-align:center;padding:22px;color:var(--sl400);font-size:13px}
-
-/* toggle */
-.tog{position:relative;display:inline-block;width:34px;height:18px}
-.tog input{opacity:0;width:0;height:0}
-.tog-sl{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--sl200);border-radius:18px;transition:.2s}
-.tog-sl:before{position:absolute;content:"";height:12px;width:12px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.2s}
-input:checked+.tog-sl{background:var(--blue)}
-input:checked+.tog-sl:before{transform:translateX(16px)}
-
-/* toast */
+/* section divider inside modal */
+.modal-section{border-top:1px dashed var(--sl200);padding-top:12px;margin-top:12px}
+.modal-section-title{font-size:10px;font-weight:700;color:var(--sl400);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}
 #toast{position:fixed;bottom:18px;right:18px;background:var(--ink);color:#fff;padding:8px 14px;
   border-radius:8px;font-size:12px;font-weight:600;z-index:900;
   transform:translateY(70px);opacity:0;transition:all .2s cubic-bezier(.34,1.56,.64,1);
   box-shadow:0 4px 16px rgba(0,0,0,.25)}
 #toast.on{transform:none;opacity:1}
 #toast.ok{background:#14532d}#toast.err{background:#7f1d1d}
-
-/* ─── PRINT ─── */
 .print-hdr-block{display:none;margin-bottom:7px;padding-bottom:7px;border-bottom:2px solid var(--ink)}
 .phb-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .phb-room{font-size:20px;font-weight:900}
@@ -295,12 +237,10 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
 .phb-type{font-size:11px;color:var(--sl400)}
 .phb-notice{margin-top:5px;font-size:11px;font-weight:600;color:#78350f;
   background:#fefce8;border-left:3px solid #fde047;padding:4px 8px;border-radius:3px}
-
 @media print{
   @page{margin:6mm}
   #hdr,#tabs,#bar,#swap-bar,.ua-panel,#toast,.overlay,.card-hd,
-  .info-bar,.cc-bar,.stats-filter-bar,.notice-bar[data-screen],
-  [data-noprint]{display:none!important}
+  .info-bar,.cc-bar,.stats-filter-bar,[data-noprint]{display:none!important}
   body,html{background:white!important;overflow:visible!important}
   #main{padding:0!important}
   #printArea{overflow:visible!important;box-shadow:none!important;border:none!important;border-radius:0!important}
@@ -329,7 +269,6 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
 </head>
 <body>
 
-<!-- HEADER -->
 <div id="hdr">
   <div class="logo">
     <span class="logo-badge">QUETTA</span>
@@ -344,10 +283,8 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
   </div>
 </div>
 
-<!-- TABS -->
 <div id="tabs"></div>
 
-<!-- TOOLBAR -->
 <div id="bar">
   <div class="view-grp">
     <button class="vbtn on" id="vb-student" onclick="setView('student')">🎓 학생용</button>
@@ -365,21 +302,19 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
   <button class="btn btn-sec btn-sm" onclick="openUplModal(S.active)">📤 명단 업로드</button>
   <button class="btn btn-sec btn-sm" onclick="doPrint()">🖨 인쇄</button>
   <div style="width:1px;height:18px;background:var(--sl200);margin:0 2px"></div>
-  <button class="btn btn-sec btn-sm" onclick="openPrintMaskModal('all')" title="전체 강의실 학생용 한번에 인쇄">🖨 전체인쇄(학생)</button>
-  <button class="btn btn-sec btn-sm" onclick="printAll('proctor')" title="전체 강의실 시감자용 한번에 인쇄">🖨 전체인쇄(시감)</button>
+  <button class="btn btn-sec btn-sm" onclick="openPrintMaskModal('all')">🖨 전체인쇄(학생)</button>
+  <button class="btn btn-sec btn-sm" onclick="printAll('proctor')">🖨 전체인쇄(시감)</button>
 </div>
 
-<!-- SWAP BAR -->
 <div id="swap-bar">
   <span>🔄</span>
   <span id="swap-msg">좌석 선택 → 이동할 자리를 클릭하거나 드래그하세요</span>
   <button id="swap-cancel" onclick="cancelSwap()">ESC 취소</button>
 </div>
 
-<!-- MAIN -->
 <div id="main"></div>
 
-<!-- ══ UPLOAD MODAL ══ -->
+<!-- UPLOAD -->
 <div class="overlay" id="upl-modal" onclick="ovClose(event,'upl-modal')">
   <div class="modal">
     <div class="mhd">
@@ -408,7 +343,7 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
   </div>
 </div>
 
-<!-- ══ SETTINGS MODAL ══ -->
+<!-- SETTINGS -->
 <div class="overlay" id="settings-modal" onclick="ovClose(event,'settings-modal')">
   <div class="modal modal-lg">
     <div class="mhd"><span class="mhd-title">⚙ 통합 설정</span><button class="btn btn-ghost" onclick="closeModal('settings-modal')">✕</button></div>
@@ -451,7 +386,7 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
   </div>
 </div>
 
-<!-- ══ RESIZE MODAL ══ -->
+<!-- RESIZE -->
 <div class="overlay" id="rz-modal" onclick="ovClose(event,'rz-modal')">
   <div class="modal modal-sm">
     <div class="mhd"><span class="mhd-title">배열 전체 초기화 후 크기 변경</span><button class="btn btn-ghost" onclick="closeModal('rz-modal')">✕</button></div>
@@ -469,12 +404,17 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
   </div>
 </div>
 
-<!-- ══ EDIT STUDENT MODAL ══ -->
+<!-- ══ EDIT STUDENT MODAL (개별편집) ══ -->
 <div class="overlay" id="edit-stu-modal" onclick="ovClose(event,'edit-stu-modal')">
   <div class="modal modal-sm">
-    <div class="mhd"><span class="mhd-title">✎ 학생 정보 수정 / 강제이동</span><button class="btn btn-ghost" onclick="closeModal('edit-stu-modal')">✕</button></div>
+    <div class="mhd">
+      <span class="mhd-title">✎ 학생 정보 수정</span>
+      <button class="btn btn-ghost" onclick="closeModal('edit-stu-modal')">✕</button>
+    </div>
     <div class="mbody">
       <div id="es-header" style="font-size:13px;font-weight:700;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--sl200)"></div>
+
+      <!-- 정보 수정 -->
       <div class="fg">
         <label class="fl">성별</label>
         <div class="radio-grp">
@@ -501,19 +441,49 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
           <label><input type="radio" name="es-math" value=""> 미지정</label>
         </div>
       </div>
-      <div style="border-top:1px dashed var(--sl200);padding-top:12px;margin-top:4px">
+
+      <!-- 강제 이동 -->
+      <div class="modal-section">
+        <div class="modal-section-title">강제 이동</div>
         <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
-          <div class="fg" style="margin:0;flex:1;min-width:100px">
-            <label class="fl">강제 이동 → 강의실</label>
+          <div class="fg" style="margin:0;flex:1;min-width:90px">
+            <label class="fl">강의실</label>
             <select class="fi" id="es-room" style="padding:6px 9px;font-size:12px"></select>
           </div>
-          <div class="fg" style="margin:0;width:80px">
-            <label class="fl">좌석번호 (표시)</label>
+          <div class="fg" style="margin:0;width:72px">
+            <label class="fl">좌석(표시번호)</label>
             <input class="fi" id="es-seat" type="number" min="1" placeholder="번" style="padding:6px 9px;font-size:12px">
           </div>
-          <button class="btn btn-amber btn-sm" onclick="forceMoveStu()">이동</button>
         </div>
-        <div style="font-size:10px;color:var(--sl400);margin-top:4px">※ 화면에 보이는 가로순 번호로 입력</div>
+        <div style="margin-top:8px">
+          <label class="fl">이동 방식</label>
+          <div class="radio-grp">
+            <label><input type="radio" name="es-shift" value="single" checked> 이 학생만 이동</label>
+            <label><input type="radio" name="es-shift" value="push"> 뒤 학생 밀기 (↓)</label>
+            <label><input type="radio" name="es-shift" value="pull"> 뒤 학생 당기기 (↑)</label>
+          </div>
+          <div style="font-size:10px;color:var(--sl400);margin-top:4px;line-height:1.6">
+            · <b>이 학생만</b>: 목적 자리 기존 학생은 미배정 처리<br>
+            · <b>밀기</b>: 목적 자리부터 뒤로 한 칸씩 밀고 빈 자리에 배정<br>
+            · <b>당기기</b>: 원래 자리 이후 학생들을 한 칸씩 앞으로 당김
+          </div>
+        </div>
+        <button class="btn btn-amber btn-sm" style="margin-top:8px" onclick="forceMoveStu()">이동 실행</button>
+      </div>
+
+      <!-- 삭제 / 삽입 -->
+      <div class="modal-section">
+        <div class="modal-section-title">삭제 / 삽입</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn btn-danger btn-sm" onclick="deleteStu('keep')">🗑 삭제 (자리 비움)</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteStu('pull')">🗑 삭제 + 뒤 학생 당기기</button>
+          <button class="btn btn-sec btn-sm" onclick="insertBeforeStu()">＋ 앞에 빈 자리 삽입</button>
+        </div>
+        <div style="font-size:10px;color:var(--sl400);margin-top:5px;line-height:1.6">
+          · <b>삭제(자리 비움)</b>: 해당 학생만 미배정, 나머지 그대로<br>
+          · <b>삭제+당기기</b>: 삭제 후 뒤 학생들 한 칸씩 앞으로 당겨옴<br>
+          · <b>앞에 빈 자리 삽입</b>: 이 학생부터 뒤로 한 칸씩 밀림
+        </div>
       </div>
     </div>
     <div class="mfoot">
@@ -523,7 +493,7 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
   </div>
 </div>
 
-<!-- ══ ADD STUDENT MANUAL MODAL ══ -->
+<!-- ADD STUDENT -->
 <div class="overlay" id="add-stu-modal" onclick="ovClose(event,'add-stu-modal')">
   <div class="modal modal-sm">
     <div class="mhd"><span class="mhd-title">✚ 학생 수기 등록</span><button class="btn btn-ghost" onclick="closeModal('add-stu-modal')">✕</button></div>
@@ -562,7 +532,7 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
   </div>
 </div>
 
-<!-- ══ PRINT MASK MODAL ══ -->
+<!-- PRINT MASK -->
 <div class="overlay" id="print-mask-modal" onclick="ovClose(event,'print-mask-modal')">
   <div class="modal modal-sm">
     <div class="mhd">
@@ -573,7 +543,7 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
       <div style="font-size:13px;font-weight:600;margin-bottom:16px;color:var(--sl700)">이름 마스킹 처리 여부를 선택하세요</div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn btn-pri" style="justify-content:flex-start;padding:12px 16px;font-size:13px"
-          onclick="closeModal('print-mask-modal');_pendingPrintAll?printAll('student',true):(executePrint(true))">
+          onclick="closeModal('print-mask-modal');_pendingPrintAll?printAll('student',true):executePrint(true)">
           <span style="font-size:16px">🙈</span>
           <div style="text-align:left">
             <div>이름 마스킹 적용</div>
@@ -581,7 +551,7 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
           </div>
         </button>
         <button class="btn btn-sec" style="justify-content:flex-start;padding:12px 16px;font-size:13px"
-          onclick="closeModal('print-mask-modal');_pendingPrintAll?printAll('student',false):(executePrint(false))">
+          onclick="closeModal('print-mask-modal');_pendingPrintAll?printAll('student',false):executePrint(false)">
           <span style="font-size:16px">👁</span>
           <div style="text-align:left">
             <div>이름 전체 표시</div>
@@ -596,22 +566,21 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
 <div id="toast"></div>
 
 <script>
-/* ═══ FIREBASE INIT ═══ */
-const firebaseConfig = {
-  apiKey: "AIzaSyCbHwOifJ_ajPyxr66uTUpqugDl5GW8tOY",
-  authDomain: "quetta-seating.firebaseapp.com",
-  projectId: "quetta-seating",
-  storageBucket: "quetta-seating.firebasestorage.app",
-  messagingSenderId: "804478055238",
-  appId: "1:804478055238:web:1513972a9df85405f7ab47"
+/* ═══ FIREBASE ═══ */
+const firebaseConfig={
+  apiKey:"AIzaSyCbHwOifJ_ajPyxr66uTUpqugDl5GW8tOY",
+  authDomain:"quetta-seating.firebaseapp.com",
+  projectId:"quetta-seating",
+  storageBucket:"quetta-seating.firebasestorage.app",
+  messagingSenderId:"804478055238",
+  appId:"1:804478055238:web:1513972a9df85405f7ab47"
 };
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const DOC = db.collection('quetta').doc('state');
+const db=firebase.firestore();
+const DOC=db.collection('quetta').doc('state');
 
 /* ═══ STATE ═══ */
 const DEF_ROOMS=['L01호','101호','102호','201호','202호','203호','204호','301호','302호','303호','304호'];
-
 let S={
   rooms:[],students:[],
   examTypes:[
@@ -623,120 +592,73 @@ let S={
   active:null,view:'student',swap:null,editStudentMode:false,
 };
 let pendingExam='',_rzId=null,dragSrc=null,_editStuIdx=null,_uploadRoomId='all';
-let _statsExam='all';
-let _printMask=true; // 학생용 인쇄 시 이름 마스킹 여부
-let _saveTimer=null;   // debounce timer
-let _syncing=false;    // prevent feedback loop from onSnapshot
+let _statsExam='all',_pendingPrintAll=false;
+let _saveTimer=null,_syncing=false;
+let _addStuRoom=null,_addStuN=0;
 
-/* ═══ FIRESTORE SAVE (debounced 800ms) ═══ */
+/* ═══ FIREBASE SAVE ═══ */
 function saveAll(){
-  // 배열편집 모드일 땐 로컬 임시저장만 — Firebase엔 올리지 않음
-  if(S.view==='edit'){
-    saveTempLocal();
-    return;
-  }
+  if(S.view==='edit'){saveTempLocal();return;}
   pushToFirebase();
 }
-
-// 로컬 임시저장 (배열편집 중 변경사항 보존용, Firebase X)
 function saveTempLocal(){
-  try{ localStorage.setItem('qtt_temp', JSON.stringify({rooms:S.rooms})); }catch(e){}
+  try{localStorage.setItem('qtt_temp',JSON.stringify({rooms:S.rooms}));}catch(e){}
 }
-
-// 실제 Firebase 저장
 function pushToFirebase(){
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(()=>{
     const stat=document.getElementById('sync-stat');
     if(stat){stat.textContent='저장 중...';stat.style.color='#fde68a';}
-    const payload={
-      rooms:S.rooms,
-      students:S.students,
-      examTypes:S.examTypes,
-      snapshots:S.snapshots,
-      updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-    };
-    DOC.set(payload)
-      .then(()=>{ if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';} })
-      .catch(e=>{ console.error('Firestore 저장 오류:',e);
-        if(stat){stat.textContent='⚠ 저장 실패';stat.style.color='#fca5a5';} });
+    DOC.set({rooms:S.rooms,students:S.students,examTypes:S.examTypes,snapshots:S.snapshots,
+      updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+      .then(()=>{if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';}})
+      .catch(e=>{console.error(e);if(stat){stat.textContent='⚠ 실패';stat.style.color='#fca5a5';}});
   },400);
 }
+function saveLayoutNow(){pushToFirebase();toast('배열 저장됨 ✅','ok');}
 
-// 배열편집 화면에서 수동 저장 버튼용
-function saveLayoutNow(){
-  pushToFirebase();
-  toast('강의실 배열을 서버에 저장했습니다 ✅','ok');
-}
-
-/* ═══ LOAD FROM FIRESTORE + REALTIME SYNC ═══ */
+/* ═══ LOAD ═══ */
 function load(){
-  // 로딩 인디케이터 표시
   document.getElementById('main').innerHTML=`
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-      height:60vh;gap:16px;color:var(--sl400)">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:16px;color:var(--sl400)">
       <div style="font-size:32px;animation:spin 1s linear infinite">⟳</div>
       <div style="font-size:14px;font-weight:600">Firebase에서 데이터 불러오는 중...</div>
     </div>
     <style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>`;
-
-  // 실시간 리스너 — 누군가 저장하면 모든 접속자 화면이 자동 갱신
   DOC.onSnapshot(snap=>{
     if(_syncing) return;
     if(snap.exists){
       const d=snap.data();
       if(d.rooms?.length)     S.rooms    =d.rooms.map(migrateRoom);
       if(d.students?.length)  S.students =d.students;
-      else if(d.students)     S.students =[];
+      else if(d.students)     S.students=[];
       if(d.examTypes?.length) S.examTypes=d.examTypes.map(et=>typeof et==='string'?{name:et,date:''}:et);
       if(d.snapshots?.length) S.snapshots=d.snapshots;
       else if(d.snapshots)    S.snapshots=[];
-      if(!S.active||!S.rooms.find(r=>r.id===S.active))
-        S.active=S.rooms[0]?.id||null;
+      if(!S.active||!S.rooms.find(r=>r.id===S.active)) S.active=S.rooms[0]?.id||null;
     } else {
-      // Firestore에 데이터 없음 → localStorage 마이그레이션 시도
-      const migrated = migrateFromLocalStorage();
-      if(!migrated){
-        // localStorage도 없으면 기본값으로 시작
-        S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));
-        S.active=S.rooms[0]?.id||null;
-      }
-      // 어느 쪽이든 Firestore에 저장
+      const migrated=migrateFromLocalStorage();
+      if(!migrated){S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));S.active=S.rooms[0]?.id||null;}
       saveAll();
     }
     renderAll();
-  }, err=>{
-    console.error('Firestore 리스너 오류:',err);
-    // Firestore 실패 시 localStorage fallback
+  },err=>{
+    console.error(err);
     migrateFromLocalStorage();
-    if(!S.rooms.length) S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));
-    S.active=S.rooms[0]?.id||null;
+    if(!S.rooms.length){S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));S.active=S.rooms[0]?.id||null;}
     renderAll();
-    document.getElementById('main').insertAdjacentHTML('afterbegin',
-      `<div style="padding:10px 14px;background:#fee2e2;color:#991b1b;font-size:12px;font-weight:600;border-radius:8px;margin-bottom:10px">
-        ⚠ Firebase 연결 오류 — 오프라인 모드로 실행 중 (${err.message})
-      </div>`);
   });
 }
-
-/* ═══ LOCALSTORAGE → FIRESTORE 마이그레이션 ═══ */
 function migrateFromLocalStorage(){
-  // 이전 버전 키 목록 (최신순)
-  const OLD_KEYS=['qtt_v9','qtt_v8','qtt_v7','qtt_v6','qtt_v5','qtt_v4'];
-  for(const key of OLD_KEYS){
+  const KEYS=['qtt_v9','qtt_v8','qtt_v7','qtt_v6','qtt_v5','qtt_v4'];
+  for(const key of KEYS){
     try{
-      const raw=localStorage.getItem(key);
-      if(!raw) continue;
-      const d=JSON.parse(raw);
+      const d=JSON.parse(localStorage.getItem(key)||'{}');
       if(d.rooms?.length){
-        S.rooms    =d.rooms.map(migrateRoom);
-        S.students =d.students||[];
+        S.rooms=d.rooms.map(migrateRoom);S.students=d.students||[];
         S.examTypes=(d.examTypes||[]).map(et=>typeof et==='string'?{name:et,date:''}:et);
-        S.snapshots=d.snapshots||[];
-        S.active=S.rooms[0]?.id||null;
-        console.log(`localStorage(${key}) → Firestore 마이그레이션 완료`);
-        toast('기존 배열 데이터를 Firebase로 업로드했습니다 ✅','ok');
-        return true;
+        S.snapshots=d.snapshots||[];S.active=S.rooms[0]?.id||null;
+        toast('기존 데이터 Firebase로 업로드됨 ✅','ok');return true;
       }
     }catch(e){}
   }
@@ -744,9 +666,7 @@ function migrateFromLocalStorage(){
 }
 function migrateRoom(r){
   if(!r.cells) r.cells=mkCells(r.rows||8,r.cols||9);
-  r.cells.forEach(c=>{
-    if(c.state===undefined){c.state=(c.on===false)?'void':'active';delete c.on;}
-  });
+  r.cells.forEach(c=>{if(c.state===undefined){c.state=(c.on===false)?'void':'active';delete c.on;}});
   renum(r.cells);
   if(!r.examType) r.examType='';
   if(!r.notice) r.notice='';
@@ -764,23 +684,18 @@ function mkCells(rows,cols){
   return c;
 }
 function renum(cells){
-  // dn: row-major over non-void (active+blocked)
   [...cells].filter(c=>c.state!=='void').sort((a,b)=>a.r-b.r||a.c-b.c).forEach((c,i)=>c.dn=i+1);
-  // n: col-major over active only
   [...cells].filter(c=>c.state==='active').sort((a,b)=>a.c-b.c||a.r-b.r).forEach((c,i)=>c.n=i+1);
   cells.filter(c=>c.state==='void').forEach(c=>{c.dn=null;c.n=null;});
   cells.filter(c=>c.state==='blocked').forEach(c=>c.n=null);
 }
-
-/* Build dynamic grid-template-columns: void columns get 8px, others get seat width */
 function getColTemplate(room,isProctor,seatW){
   const colEmpty=Array(room.cols).fill(true);
   room.cells.forEach(cell=>{if(cell.state!=='void') colEmpty[cell.c]=false;});
-  let cols=colEmpty.map(empty=>empty?'8px':`${seatW}px`);
+  let cols=colEmpty.map(e=>e?'8px':`${seatW}px`);
   if(isProctor) cols=[...cols].reverse();
   return cols.join(' ');
 }
-
 const getRoom=id=>S.rooms.find(r=>r.id===id);
 const roomStu=id=>S.students.filter(s=>s.고사장===id);
 const seatStu=(rid,n)=>S.students.find(s=>s.고사장===rid&&+s.자리===+n);
@@ -793,36 +708,53 @@ const gBdg=s=>s.성별==='남'?'<span class="bdg bdg-m">남</span>':s.성별==='
 const tBdg=s=>{const t=s.탐구||'';if(!t)return'';const cl=t.includes('사탐')?'bdg-sat':t.includes('과탐')?'bdg-gwt':t.includes('사과')?'bdg-sag':'';return`<span class="bdg ${cl}">${t}</span>`;};
 const examByName=name=>S.examTypes.find(et=>et.name===name);
 
-/* ═══ +/- ROW/COL (state-preserving) ═══ */
-function addRow(rid){
-  const room=getRoom(rid),r=room.rows;
-  for(let c=0;c<room.cols;c++) room.cells.push({r,c,state:'active',n:0,dn:0});
-  room.rows++;renum(room.cells);saveTempLocal();renderMain();
-}
+/* ═══ +/- ROW/COL ═══ */
+function addRow(rid){const room=getRoom(rid),r=room.rows;for(let c=0;c<room.cols;c++)room.cells.push({r,c,state:'active',n:0,dn:0});room.rows++;renum(room.cells);saveTempLocal();renderMain();}
 function removeRow(rid){
-  const room=getRoom(rid);if(room.rows<=1) return;
-  const lastR=room.rows-1;
-  const aff=room.cells.filter(c=>c.r===lastR&&c.state==='active');
+  const room=getRoom(rid);if(room.rows<=1)return;
+  const lastR=room.rows-1,aff=room.cells.filter(c=>c.r===lastR&&c.state==='active');
   const hasStu=aff.some(cell=>seatStu(rid,cell.n));
-  if(hasStu&&!confirm('마지막 행에 배정된 학생이 있습니다. 제거하시겠습니까?')) return;
-  if(hasStu) aff.forEach(cell=>{const s=seatStu(rid,cell.n);if(s){s.고사장='';s.자리=0;}});
-  room.cells=room.cells.filter(c=>c.r!==lastR);room.rows--;
-  renum(room.cells);saveTempLocal();renderMain();
+  if(hasStu&&!confirm('마지막 행에 배정된 학생이 있습니다. 제거하시겠습니까?'))return;
+  if(hasStu)aff.forEach(cell=>{const s=seatStu(rid,cell.n);if(s){s.고사장='';s.자리=0;}});
+  room.cells=room.cells.filter(c=>c.r!==lastR);room.rows--;renum(room.cells);saveTempLocal();renderMain();
 }
-function addCol(rid){
-  const room=getRoom(rid),cc=room.cols;
-  for(let r=0;r<room.rows;r++) room.cells.push({r,c:cc,state:'active',n:0,dn:0});
-  room.cols++;renum(room.cells);saveTempLocal();renderMain();
-}
+function addCol(rid){const room=getRoom(rid),cc=room.cols;for(let r=0;r<room.rows;r++)room.cells.push({r,c:cc,state:'active',n:0,dn:0});room.cols++;renum(room.cells);saveTempLocal();renderMain();}
 function removeCol(rid){
-  const room=getRoom(rid);if(room.cols<=1) return;
-  const lastC=room.cols-1;
-  const aff=room.cells.filter(c=>c.c===lastC&&c.state==='active');
+  const room=getRoom(rid);if(room.cols<=1)return;
+  const lastC=room.cols-1,aff=room.cells.filter(c=>c.c===lastC&&c.state==='active');
   const hasStu=aff.some(cell=>seatStu(rid,cell.n));
-  if(hasStu&&!confirm('마지막 열에 배정된 학생이 있습니다. 제거하시겠습니까?')) return;
-  if(hasStu) aff.forEach(cell=>{const s=seatStu(rid,cell.n);if(s){s.고사장='';s.자리=0;}});
-  room.cells=room.cells.filter(c=>c.c!==lastC);room.cols--;
-  renum(room.cells);saveTempLocal();renderMain();
+  if(hasStu&&!confirm('마지막 열에 배정된 학생이 있습니다. 제거하시겠습니까?'))return;
+  if(hasStu)aff.forEach(cell=>{const s=seatStu(rid,cell.n);if(s){s.고사장='';s.자리=0;}});
+  room.cells=room.cells.filter(c=>c.c!==lastC);room.cols--;renum(room.cells);saveTempLocal();renderMain();
+}
+
+/* ═══ SHIFT HELPERS ═══ */
+// 활성 좌석을 dn(표시번호) 순서로 정렬해서 반환
+function activeCellsDn(roomId){
+  return getRoom(roomId).cells.filter(c=>c.state==='active'&&c.dn!=null).sort((a,b)=>a.dn-b.dn);
+}
+// fromDn(포함)부터 뒤 학생들을 한 칸씩 뒤로 밀기
+function shiftForwardFrom(roomId,fromDn){
+  const cells=activeCellsDn(roomId);
+  const fromIdx=cells.findIndex(c=>c.dn===fromDn);
+  if(fromIdx<0) return;
+  for(let i=cells.length-1;i>=fromIdx;i--){
+    const stu=seatStu(roomId,cells[i].n);
+    if(!stu) continue;
+    if(i+1>=cells.length){stu.고사장='';stu.자리=0;toast(`${stu.이름}: 자리 없어 미배정 처리됨`,'');}
+    else stu.자리=cells[i+1].n;
+  }
+}
+// fromDn(포함)부터 뒤 학생들을 한 칸씩 앞으로 당기기
+function shiftBackFrom(roomId,fromDn){
+  const cells=activeCellsDn(roomId);
+  const fromIdx=cells.findIndex(c=>c.dn===fromDn);
+  if(fromIdx<0) return;
+  for(let i=fromIdx;i<cells.length-1;i++){
+    const nextStu=seatStu(roomId,cells[i+1].n);
+    if(!nextStu) break;
+    nextStu.자리=cells[i].n;
+  }
 }
 
 /* ═══ UPLOAD ═══ */
@@ -837,7 +769,7 @@ function openUplModal(mode){
   openModal('upl-modal');
 }
 function handleUpload(e){
-  const f=e.target.files[0];if(!f) return;
+  const f=e.target.files[0];if(!f)return;
   const rd=new FileReader();
   rd.onload=ev=>{
     try{
@@ -850,41 +782,34 @@ function handleUpload(e){
         수학선택:['수학선택','수학'],탐구:['탐구','탐구선택'],반코드:['반코드'],
         고사장:['고사장','강의실','시험실'],자리:['자리','좌석','좌석번호']};
       const map={};
-      for(const[k,al] of Object.entries(AL)) map[k]=hdrs.find(h=>al.some(a=>h.trim()===a||h.trim().startsWith(a)));
+      for(const[k,al]of Object.entries(AL)) map[k]=hdrs.find(h=>al.some(a=>h.trim()===a||h.trim().startsWith(a)));
       const req=_uploadRoomId==='all'?['이름','학번','고사장','자리']:['이름','학번','자리'];
       const miss=req.filter(k=>!map[k]);
       if(miss.length){uplMsg(`❌ 컬럼 없음: ${miss.join(', ')}<br><small>헤더: ${hdrs.slice(0,12).join(' · ')}</small>`,'#7f1d1d');return;}
-
       const parsed=rows.filter(r=>r[map.이름]&&r[map.학번]).map((r,i)=>{
         const excelRoom=map[map.고사장]!==undefined?String(r[map.고사장]||'').trim():'';
-        // for per-room upload: if excel has 고사장 column and it differs → unassigned
         const targetRoom=_uploadRoomId!=='all'?_uploadRoomId:excelRoom;
         let assignRoom=targetRoom,assignSeat=+r[map.자리]||0;
         if(_uploadRoomId!=='all'&&map[map.고사장]!==undefined&&excelRoom&&excelRoom!==_uploadRoomId){
-          // mismatch: mark as unassigned in target room
           assignRoom=_uploadRoomId;assignSeat=0;
         }
-        return{
-          _i:i,_mismatch:(_uploadRoomId!=='all'&&map[map.고사장]!==undefined&&excelRoom&&excelRoom!==_uploadRoomId),
+        return{_i:i,_mismatch:(_uploadRoomId!=='all'&&map[map.고사장]!==undefined&&excelRoom&&excelRoom!==_uploadRoomId),
           반:String(r[map.반]||'').trim(),성별:String(r[map.성별]||'').trim(),
           이름:String(r[map.이름]||'').trim(),학번:String(r[map.학번]||'').trim(),
           수학선택:String(r[map.수학선택]||'').trim(),탐구:String(r[map.탐구]||'').trim(),
-          반코드:String(r[map.반코드]||'').trim(),
-          고사장:assignRoom,자리:assignSeat,
-        };
+          반코드:String(r[map.반코드]||'').trim(),고사장:assignRoom,자리:assignSeat};
       });
       if(_uploadRoomId==='all'){
         [...new Set(parsed.map(s=>s.고사장).filter(Boolean))].forEach(rn=>{if(!getRoom(rn))S.rooms.push(mkRoom(rn,8,9));});
         S.students=parsed;
       }else{
         S.students=S.students.filter(s=>s.고사장!==_uploadRoomId);
-        S.students.push(...parsed);
-        S.students.forEach((s,i)=>s._i=i);
+        S.students.push(...parsed);S.students.forEach((s,i)=>s._i=i);
       }
-      const mismatchCnt=parsed.filter(s=>s._mismatch).length;
+      const mc=parsed.filter(s=>s._mismatch).length;
       saveAll();renderAll();
-      uplMsg(`✅ ${parsed.length}명 업로드 완료${mismatchCnt?` (미배정 ${mismatchCnt}명)`:''}`,'#14532d');
-      toast(`${parsed.length}명 업로드 완료`+(mismatchCnt?` · 미배정 ${mismatchCnt}명`:''),'ok');
+      uplMsg(`✅ ${parsed.length}명 업로드 완료${mc?` (미배정 ${mc}명)`:''}`,'#14532d');
+      toast(`${parsed.length}명 업로드 완료`+(mc?` · 미배정 ${mc}명`:''),'ok');
     }catch(err){uplMsg(`❌ 오류: ${err.message}`,'#7f1d1d');}
     e.target.value='';
   };
@@ -894,8 +819,7 @@ function uplMsg(html,color){const el=document.getElementById('upl-msg');el.inner
 function downloadTemplate(){
   const wb=XLSX.utils.book_new();
   const hdrs=['반','성별','이름','학번','수학선택','탐구','반코드','고사장','자리'];
-  const ex=['X2','남','홍길동','5001','미적분','사탐','71','101호','1'];
-  const ws=XLSX.utils.aoa_to_sheet([hdrs,ex]);
+  const ws=XLSX.utils.aoa_to_sheet([hdrs,['X2','남','홍길동','5001','미적분','사탐','71','101호','1']]);
   ws['!cols']=hdrs.map(()=>({wch:14}));
   XLSX.utils.book_append_sheet(wb,ws,'RawData');
   XLSX.writeFile(wb,_uploadRoomId!=='all'?`${_uploadRoomId}_업로드양식.xlsx`:'좌석배치_업로드양식.xlsx');
@@ -917,7 +841,6 @@ function renderMain(){
   document.getElementById('exam-row').style.display='';
   refreshExamDD(room);
   document.getElementById('edit-mode-btn').classList.toggle('on',S.editStudentMode);
-  // swap bar 숨김 (swap 기능 제거됨)
   document.getElementById('swap-bar').classList.remove('on');
   if(S.view==='edit') renderEdit(room);
   else renderGrid(room,S.view==='proctor');
@@ -929,19 +852,18 @@ function refreshExamDD(room){
   pendingExam=room.examType||'';
 }
 
-/* ═══ GRID RENDER ═══ */
+/* ═══ GRID ═══ */
 function renderGrid(room,isProctor){
   const seatW=room.cols>10?74:82;
   const sorted=[...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
   const cells=isProctor?[...sorted].reverse():sorted;
   const stus=roomStu(room.id);
   const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
-
   const classMap={},classCnt={};
   stus.forEach(s=>{if(s.반&&s.반코드)classMap[s.반]=s.반코드;if(s.반)classCnt[s.반]=(classCnt[s.반]||0)+1;});
   const classEntries=Object.entries(classMap).sort((a,b)=>a[0].localeCompare(b[0]));
-
-  const infoBar=`<div class="info-bar"><span class="ib-label">반 구성</span>${
+  // ▼ "반 코드" 로 수정
+  const infoBar=`<div class="info-bar"><span class="ib-label">반 코드</span>${
     classEntries.length?classEntries.map(([b,c])=>`<span class="cls-chip">${b} · ${c}</span>`).join('')
     :'<span style="color:var(--sl300);font-size:11px">반 정보 없음</span>'
   }</div>`;
@@ -950,19 +872,15 @@ function renderGrid(room,isProctor){
     ${Object.entries(classCnt).sort((a,b)=>a[0].localeCompare(b[0])).map(([b,c])=>`<span class="cc-item">${b} <b>${c}명</b></span>`).join('')}
     <span style="margin-left:auto;font-size:10px;font-weight:600;opacity:.7">계 ${stus.length}명</span>
   </div>`:'' ;
-
   let html='';
   cells.forEach(cell=>{
     if(cell.state==='void'){html+=`<div class="sc void"></div>`;return;}
     if(cell.state==='blocked'){
-      html+=`<div class="sc blocked" style="width:${seatW}px"><div class="sn-wrap"><span class="sn">${cell.dn}</span></div><div class="s-blocked-lbl">미사용</div></div>`;
-      return;
+      html+=`<div class="sc blocked" style="width:${seatW}px"><div class="sn-wrap"><span class="sn">${cell.dn}</span></div><div class="s-blocked-lbl">미사용</div></div>`;return;
     }
     const stu=seatStu(room.id,cell.n);
-    const isSel=S.swap?.roomId===room.id&&S.swap?.n===cell.n;
     let cls=stu?(stu.성별==='남'?'male':stu.성별==='여'?'female':''):'';
-    if(isSel) cls+=' selected';
-    if(stu)   cls+=' has-student';
+    if(stu) cls+=' has-student';
     let inner=`<div class="sn-wrap"><span class="sn">${cell.dn}</span></div>`;
     if(stu){
       inner+=`<div class="s-ban">${stu.반코드||''}</div>
@@ -974,32 +892,24 @@ function renderGrid(room,isProctor){
     const ddTgt=`ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${room.id}',${cell.n})"`;
     html+=`<div class="sc ${cls}" style="width:${seatW}px;min-height:72px" ${ddSrc} ${ddTgt} onclick="clickSeat('${room.id}',${cell.n})">${inner}</div>`;
   });
-
   const ua=stus.filter(s=>!validNs.has(+s.자리));
   const editCls=S.editStudentMode?'edit-student-mode':'';
   const colTpl=getColTemplate(room,isProctor,seatW);
   const examObj=examByName(room.examType);
-  const examLabel=room.examType?room.examType:'';
   const examDate=examObj?.date?`(시행일:${examObj.date})`:'';
-  const noticeHtml=room.notice?`<div class="notice-bar">${room.notice}</div>`:'';
-
-  // print header block
   const prtHdr=`<div class="print-hdr-block">
     <div class="phb-top">
       <span class="phb-room">${room.name}</span>
-      ${examLabel?`<span class="phb-exam">${examLabel}</span>`:''}
+      ${room.examType?`<span class="phb-exam">${room.examType}</span>`:''}
       ${examDate?`<span class="phb-date">${examDate}</span>`:''}
       <span class="phb-type">${isProctor?'[시감자용]':'[학생용]'}</span>
     </div>
     ${room.notice?`<div class="phb-notice">${room.notice}</div>`:''}
   </div>`;
-
-  // notice input (screen only)
   const noticeEdit=`<div style="padding:8px 15px;background:var(--sl50);border-bottom:1px solid var(--sl200)" data-noprint>
     <label style="font-size:10px;font-weight:700;color:var(--sl400);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:4px">인쇄용 공지 (선택)</label>
     <textarea class="notice-input" placeholder="수험생 주의사항 등 인쇄 시 상단에 표시할 내용을 입력하세요..." onchange="saveNotice('${room.id}',this.value)">${room.notice||''}</textarea>
   </div>`;
-
   document.getElementById('main').innerHTML=`
     <div class="card" id="printArea">
       ${prtHdr}
@@ -1009,9 +919,7 @@ function renderGrid(room,isProctor){
           <span class="card-sub">${isProctor?'시감자용 · 위아래 반전':'학생용'}</span>
         </div>
       </div>
-      ${infoBar}
-      ${ccBar}
-      ${noticeEdit}
+      ${infoBar}${ccBar}${noticeEdit}
       ${!isProctor?'<div class="bbar">칠 판</div>':''}
       <div class="grid-wrap" id="printGrid">
         <div class="sgrid ${editCls}" style="grid-template-columns:${colTpl}">${html}</div>
@@ -1021,24 +929,20 @@ function renderGrid(room,isProctor){
     ${ua.length?uaHtml(room,ua):''}`;
 }
 
-function saveNotice(roomId,val){
-  const room=getRoom(roomId);if(!room) return;
-  room.notice=val;saveAll();
-}
+function saveNotice(roomId,val){const room=getRoom(roomId);if(!room)return;room.notice=val;saveAll();}
 
 function uaHtml(room,ua){
   const chips=ua.map(s=>`
-    <div class="ua-chip ${s._mismatch?'mismatch':''}"
-      draggable="true"
+    <div class="ua-chip ${s._mismatch?'mismatch':''}" draggable="true"
       ondragstart="onDragStart(event,'unassigned','${room.id}',0,${s._i})" ondragend="onDragEnd(event)"
-      onclick="openEditStu(${s._i})" title="${s._mismatch?'다른 강의실로 지정된 학생':'미배정 학생'}">
+      onclick="openEditStu(${s._i})">
       ${s._mismatch?'⚠ ':''}${gBdg(s)}${tBdg(s)}<span>${s.이름}</span><span class="ua-mini">${s.학번}</span>
       ${s._mismatch?`<span class="ua-mini" style="color:#ef4444">(${s.고사장||'?'})</span>`:''}
     </div>`).join('');
-  const mismatchCnt=ua.filter(s=>s._mismatch).length;
+  const mc=ua.filter(s=>s._mismatch).length;
   return`<div class="ua-panel">
     <div class="ua-hd">⚠ 좌석 미배정 학생 <b>${ua.length}명</b>
-      ${mismatchCnt?`<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:8px">강의실 불일치 ${mismatchCnt}명</span>`:''}
+      ${mc?`<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:8px">강의실 불일치 ${mc}명</span>`:''}
       <span style="margin-left:auto;font-size:10px;opacity:.7">클릭 → 정보수정·강제이동 | 드래그 → 좌석 직접 배치</span>
     </div>
     <div class="ua-body">${chips}</div>
@@ -1141,9 +1045,8 @@ function classMatrix(stus,rooms){
 function renderEdit(room){
   document.getElementById('exam-row').style.display='';
   const cells=[...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
-  const colTpl=Array(room.cols).fill(0).map((_, ci)=>{
-    const colHasContent=room.cells.some(c=>c.c===ci&&c.state!=='void');
-    return colHasContent?'44px':'8px';
+  const colTpl=Array(room.cols).fill(0).map((_,ci)=>{
+    return room.cells.some(c=>c.c===ci&&c.state!=='void')?'44px':'8px';
   }).join(' ');
   const ecHTML=cells.map(cell=>`
     <div class="ec ${cell.state}" onclick="togCell('${room.id}',${cell.r},${cell.c})">
@@ -1161,7 +1064,7 @@ function renderEdit(room){
         </div>
       </div>
       <div class="edit-hint">
-        클릭 순환: <b>활성</b>(파랑) → <b>미사용</b>(주황, 번호 있음) → <b>없음</b>(회색, 빈 공간) → 활성<br>
+        클릭 순환: <b>활성</b>(파랑) → <b>미사용</b>(주황) → <b>없음</b>(회색) → 활성<br>
         큰숫자 = 화면 표시 번호(가로순) / <small>작은숫자 = 업로드 번호(세로순, 활성만)</small><br>
         ⚠ 이 배열은 학생 초기화와 무관하게 유지됩니다.
       </div>
@@ -1198,22 +1101,10 @@ function clickSeat(roomId,n){
   if(S.view==='edit') return;
   const cell=getRoom(roomId)?.cells.find(c=>c.n===n);
   if(cell?.state==='blocked') return;
-
-  if(!S.editStudentMode){
-    // 개별편집 모드 아닐 때 — 안내 토스트만
-    toast('✎ 개별편집 버튼을 먼저 켜주세요','err');
-    return;
-  }
-
-  // 개별편집 모드
+  if(!S.editStudentMode){toast('✎ 개별편집 버튼을 먼저 켜주세요','err');return;}
   const stu=seatStu(roomId,n);
-  if(stu){
-    // 학생 있는 좌석 → 정보 수정 / 이동 모달
-    openEditStu(stu._i);
-  } else {
-    // 빈 좌석 → 수기 학생 등록
-    openAddStu(roomId,n);
-  }
+  if(stu) openEditStu(stu._i);
+  else openAddStu(roomId,n);
 }
 function doSwap(rA,nA,rB,nB){
   const stA=S.students.find(s=>s.고사장===rA&&+s.자리===nA);
@@ -1229,12 +1120,7 @@ function cancelSwap(){S.swap=null;renderMain();}
 
 /* ═══ DRAG & DROP ═══ */
 function onDragStart(e,type,roomId,cellN,stuIdx){
-  // 개별편집 모드가 아니면 드래그 차단
-  if(!S.editStudentMode){
-    e.preventDefault();
-    toast('✎ 개별편집 버튼을 먼저 켜주세요','err');
-    return false;
-  }
+  if(!S.editStudentMode){e.preventDefault();toast('✎ 개별편집 버튼을 먼저 켜주세요','err');return false;}
   dragSrc={type,roomId,cellN,stuIdx};
   e.dataTransfer.effectAllowed='move';
   e.dataTransfer.setData('text/plain','drag');
@@ -1296,7 +1182,7 @@ function doResize(){
   if(!r||!c){toast('값 필요','err');return;}
   room.rows=r;room.cols=c;room.cells=mkCells(r,c);renum(room.cells);
   saveTempLocal();renderMain();closeModal('rz-modal');
-  toast(`${room.name}: ${r}행 × ${c}열 — 💾 배열 저장 버튼을 눌러 서버에 반영하세요`,'');
+  toast(`${room.name}: ${r}행×${c}열 — 💾 배열 저장 버튼을 눌러 반영하세요`,'');
 }
 function renameRoom(oldId){
   const nw=prompt(`"${oldId}" 강의실 이름 변경:`,oldId);
@@ -1317,42 +1203,35 @@ function confirmDeleteRoom(id){
 /* ═══ EXAM TYPE ═══ */
 function saveRoomExam(){
   const room=getRoom(S.active);if(!room) return;
-  room.examType=pendingExam;saveAll();renderMain();toast(`${room.name}: "${pendingExam||'없음'}" 저장`,'ok');
+  // ▼ 모의고사 미선택 시 저장 차단
+  if(!pendingExam){alert('모의고사를 선택한 후 저장해주세요.');return;}
+  room.examType=pendingExam;saveAll();renderMain();toast(`${room.name}: "${pendingExam}" 저장`,'ok');
 }
 
 /* ═══ MANUAL ADD STUDENT ═══ */
-let _addStuRoom=null, _addStuN=0;
-function openAddStu(roomId, n){
-  _addStuRoom=roomId; _addStuN=n;
+function openAddStu(roomId,n){
+  _addStuRoom=roomId;_addStuN=n;
   const room=getRoom(roomId);
   const cell=room?.cells.find(c=>c.n===n);
-  document.getElementById('as-header').textContent=`${roomId} · ${cell?cell.dn+'번 (표시)':'?번'} 좌석에 학생 등록`;
-  document.getElementById('as-name').value='';
-  document.getElementById('as-hak').value='';
-  document.getElementById('as-ban').value='';
-  document.getElementById('as-bancode').value='';
-  document.querySelectorAll('[name="as-gender"]').forEach(r=>r.checked=r.value==='');
-  document.querySelectorAll('[name="as-subject"]').forEach(r=>r.checked=r.value==='');
+  document.getElementById('as-header').textContent=`${roomId} · ${cell?cell.dn+'번':'?번'} 좌석에 학생 등록`;
+  ['as-name','as-hak','as-ban','as-bancode'].forEach(id=>document.getElementById(id).value='');
+  document.querySelectorAll('[name="as-gender"],[name="as-subject"]').forEach(r=>r.checked=r.value==='');
   openModal('add-stu-modal');
   setTimeout(()=>document.getElementById('as-name').focus(),100);
 }
 function saveAddStu(){
   const name=document.getElementById('as-name').value.trim();
-  const hak =document.getElementById('as-hak').value.trim();
+  const hak=document.getElementById('as-hak').value.trim();
   if(!name||!hak){toast('이름과 학번은 필수입니다','err');return;}
   const newIdx=S.students.length;
-  S.students.push({
-    _i:newIdx, _mismatch:false,
-    이름:name, 학번:hak,
+  S.students.push({_i:newIdx,_mismatch:false,
+    이름:name,학번:hak,
     반:document.getElementById('as-ban').value.trim(),
     반코드:document.getElementById('as-bancode').value.trim(),
     성별:document.querySelector('[name="as-gender"]:checked')?.value||'',
     탐구:document.querySelector('[name="as-subject"]:checked')?.value||'',
-    수학선택:'',
-    고사장:_addStuRoom, 자리:_addStuN,
-  });
-  saveAll(); renderAll(); closeModal('add-stu-modal');
-  toast(`${name} 등록 완료`,'ok');
+    수학선택:'',고사장:_addStuRoom,자리:_addStuN});
+  saveAll();renderAll();closeModal('add-stu-modal');toast(`${name} 등록 완료`,'ok');
 }
 function toggleEditStudentMode(){
   S.editStudentMode=!S.editStudentMode;
@@ -1368,6 +1247,8 @@ function openEditStu(idx){
   document.querySelectorAll('[name="es-gender"]').forEach(r=>r.checked=r.value===stu.성별);
   document.querySelectorAll('[name="es-subject"]').forEach(r=>r.checked=r.value===(stu.탐구||''));
   document.querySelectorAll('[name="es-math"]').forEach(r=>r.checked=r.value===(stu.수학선택||''));
+  // shift 기본값 리셋
+  document.querySelectorAll('[name="es-shift"]').forEach(r=>r.checked=r.value==='single');
   const rs=document.getElementById('es-room');
   rs.innerHTML=S.rooms.map(r=>`<option value="${r.id}" ${r.id===stu.고사장?'selected':''}>${r.name}</option>`).join('');
   document.getElementById('es-seat').value=cell?cell.dn:'';
@@ -1384,21 +1265,66 @@ function forceMoveStu(){
   const stu=S.students.find(s=>s._i===_editStuIdx);if(!stu) return;
   const tRid=document.getElementById('es-room').value;
   const tDn=+document.getElementById('es-seat').value;
+  const shiftMode=document.querySelector('[name="es-shift"]:checked')?.value||'single';
   if(!tRid||!tDn){toast('강의실과 좌석번호 입력','err');return;}
   const tRoom=getRoom(tRid);if(!tRoom){toast('강의실 없음','err');return;}
   const tCell=tRoom.cells.find(c=>c.dn===tDn&&c.state==='active');
-  if(!tCell){toast(`${tRid}에 표시번호 ${tDn}번 활성 좌석 없음`,'err');return;}
-  const disp=S.students.find(s=>s.고사장===tRid&&+s.자리===tCell.n);
-  if(disp){disp.고사장='';disp.자리=0;}
-  stu.고사장=tRid;stu.자리=tCell.n;stu._mismatch=false;
-  saveAll();renderAll();closeModal('edit-stu-modal');toast(`${stu.이름} → ${tRid} ${tDn}번`,'ok');
+  if(!tCell){toast(`${tRid} ${tDn}번 활성 좌석 없음`,'err');return;}
+  const srcRid=stu.고사장,srcN=+stu.자리;
+  const srcCell=getRoom(srcRid)?.cells.find(c=>c.n===srcN);
+
+  if(shiftMode==='single'){
+    // 이 학생만: 목적 좌석 학생은 미배정
+    const disp=S.students.find(s=>s.고사장===tRid&&+s.자리===tCell.n);
+    if(disp){disp.고사장='';disp.자리=0;}
+    stu.고사장=tRid;stu.자리=tCell.n;stu._mismatch=false;
+    toast(`${stu.이름} → ${tRid} ${tDn}번 (단독 이동)`,'ok');
+  } else if(shiftMode==='push'){
+    // 밀기: 목적 자리부터 뒤로 밀고 빈 자리에 삽입
+    shiftForwardFrom(tRid,tDn);
+    stu.고사장='';stu.자리=0; // 임시 제거 후 배정
+    stu.고사장=tRid;stu.자리=tCell.n;stu._mismatch=false;
+    toast(`${stu.이름} → ${tRid} ${tDn}번 (이후 학생 밀기)`,'ok');
+  } else if(shiftMode==='pull'){
+    // 당기기: 원래 자리 이후 학생 당기고 목적 자리에 배정
+    stu.고사장='';stu.자리=0; // 임시 제거
+    if(srcRid===tRid&&srcCell) shiftBackFrom(srcRid,srcCell.dn);
+    const disp2=S.students.find(s=>s.고사장===tRid&&+s.자리===tCell.n);
+    if(disp2){disp2.고사장='';disp2.자리=0;}
+    stu.고사장=tRid;stu.자리=tCell.n;stu._mismatch=false;
+    toast(`${stu.이름} → ${tRid} ${tDn}번 (이후 학생 당기기)`,'ok');
+  }
+  saveAll();renderAll();closeModal('edit-stu-modal');
+}
+function deleteStu(mode){
+  const stu=S.students.find(s=>s._i===_editStuIdx);if(!stu) return;
+  const roomId=stu.고사장,stuN=+stu.자리;
+  const cell=getRoom(roomId)?.cells.find(c=>c.n===stuN);
+  if(mode==='pull'&&cell){
+    stu.고사장='';stu.자리=0;
+    shiftBackFrom(roomId,cell.dn);
+    toast(`${stu.이름} 삭제 + 뒤 학생 당기기 완료`,'ok');
+  } else {
+    stu.고사장='';stu.자리=0;
+    toast(`${stu.이름} → 미배정 처리`,'ok');
+  }
+  saveAll();renderAll();closeModal('edit-stu-modal');
+}
+function insertBeforeStu(){
+  const stu=S.students.find(s=>s._i===_editStuIdx);if(!stu) return;
+  const roomId=stu.고사장,stuN=+stu.자리;
+  const cell=getRoom(roomId)?.cells.find(c=>c.n===stuN);
+  if(!cell){toast('현재 좌석 정보 없음','err');return;}
+  shiftForwardFrom(roomId,cell.dn);
+  toast(`${stu.이름} 앞에 빈 자리 삽입 (이후 학생 한 칸 밀림)`,'ok');
+  saveAll();renderAll();closeModal('edit-stu-modal');
 }
 
 /* ═══ SETTINGS ═══ */
 function openSettings(){renderSettingsContent();openModal('settings-modal');}
 function renderSettingsContent(){renderRoomList();renderExamList();renderSnapList();}
 function renderRoomList(){
-  const el=document.getElementById('rmgr-list');if(!el) return;
+  const el=document.getElementById('rmgr-list');if(!el)return;
   el.innerHTML=S.rooms.map(r=>`
     <div class="li-item">
       <div style="flex:1"><div class="li-name">${r.name}</div>
@@ -1410,7 +1336,7 @@ function renderRoomList(){
     </div>`).join('')||'<div class="empty-state">강의실 없음</div>';
 }
 function renderExamList(){
-  const el=document.getElementById('et-list');if(!el) return;
+  const el=document.getElementById('et-list');if(!el)return;
   el.innerHTML=S.examTypes.length
     ?S.examTypes.map((et,i)=>`<div class="li-item">
         <div style="flex:1"><div class="li-name">${et.name}</div>
@@ -1421,7 +1347,7 @@ function renderExamList(){
     :'<div class="empty-state">목록 없음</div>';
 }
 function renderSnapList(){
-  const el=document.getElementById('snap-list');if(!el) return;
+  const el=document.getElementById('snap-list');if(!el)return;
   el.innerHTML=S.snapshots.length
     ?[...S.snapshots].reverse().map(sn=>`<div class="li-item">
         <div style="flex:1"><div class="li-name">${sn.name}</div>
@@ -1449,15 +1375,15 @@ function removeExamType(i){S.examTypes.splice(i,1);saveAll();renderExamList();}
 
 /* ═══ SNAPSHOTS ═══ */
 function doSaveSnap(){
-  const name=prompt('저장 이름:\n예) 2026년 3월 모의고사');if(!name) return;
+  const name=prompt('저장 이름:\n예) 2026년 3월 모의고사');if(!name)return;
   S.snapshots.push({id:Date.now().toString(),name,date:new Date().toLocaleDateString('ko-KR'),
     rooms:JSON.parse(JSON.stringify(S.rooms)),students:JSON.parse(JSON.stringify(S.students))});
   saveAll();toast(`"${name}" 저장됨`,'ok');
-  if(document.getElementById('settings-modal').classList.contains('on')) renderSnapList();
+  if(document.getElementById('settings-modal').classList.contains('on'))renderSnapList();
 }
 function loadSnap(id){
-  if(!confirm('현재 배치를 덮어씁니다. 계속하시겠습니까?')) return;
-  const sn=S.snapshots.find(s=>s.id===id);if(!sn) return;
+  if(!confirm('현재 배치를 덮어씁니다. 계속하시겠습니까?'))return;
+  const sn=S.snapshots.find(s=>s.id===id);if(!sn)return;
   S.rooms=sn.rooms.map(migrateRoom);S.students=JSON.parse(JSON.stringify(sn.students));
   S.active=S.rooms[0]?.id||null;saveAll();renderAll();renderSnapList();toast(`"${sn.name}" 불러오기 완료`,'ok');
 }
@@ -1470,211 +1396,140 @@ function setView(v){
   if(S.active==='__stats__') switchRoom(S.rooms[0]?.id||null);
   else renderMain();
 }
-let _pendingPrintAll=false;
-
-function openPrintMaskModal(mode){
-  _pendingPrintAll=(mode==='all');
-  openModal('print-mask-modal');
-}
-
+function openPrintMaskModal(mode){_pendingPrintAll=(mode==='all');openModal('print-mask-modal');}
 function doPrint(){
-  const isStudent = S.view==='student';
-  const isProctor = S.view==='proctor';
-  if(!isStudent && !isProctor){ toast('학생용 또는 시감자용 화면에서 인쇄하세요','err'); return; }
-  if(isStudent){ openPrintMaskModal('single'); return; }
+  const isStudent=S.view==='student',isProctor=S.view==='proctor';
+  if(!isStudent&&!isProctor){toast('학생용 또는 시감자용 화면에서 인쇄하세요','err');return;}
+  if(isStudent){openPrintMaskModal('single');return;}
   executePrint(false);
 }
-
 function executePrint(maskNames){
-  const isProctor = S.view==='proctor';
-
-  const styleId='__pstyle';
-  document.getElementById(styleId)?.remove();
-  const st=document.createElement('style');
-  st.id=styleId;
-
+  const isProctor=S.view==='proctor';
+  const styleId='__pstyle';document.getElementById(styleId)?.remove();
+  const st=document.createElement('style');st.id=styleId;
   if(isProctor){
     document.body.className='pp';
-    st.textContent=`@media print{
-      @page{size:A4 portrait;margin:6mm}
-      .name-full{display:inline!important}
-      .name-mask{display:none!important}
-      .cc-bar{display:flex!important}
-      .info-bar{display:flex!important}
-    }`;
-  } else if(maskNames){
+    st.textContent=`@media print{@page{size:A4 portrait;margin:6mm}.name-full{display:inline!important}.name-mask{display:none!important}.cc-bar{display:flex!important}.info-bar{display:flex!important}}`;
+  }else if(maskNames){
     document.body.className='ps';
-    st.textContent=`@media print{
-      @page{size:A4 portrait;margin:6mm}
-      .name-full{display:none!important}
-      .name-mask{display:inline!important}
-      .info-bar,.cc-bar{display:none!important}
-    }`;
-  } else {
+    st.textContent=`@media print{@page{size:A4 portrait;margin:6mm}.name-full{display:none!important}.name-mask{display:inline!important}.info-bar,.cc-bar{display:none!important}}`;
+  }else{
     document.body.className='';
-    st.textContent=`@media print{
-      @page{size:A4 portrait;margin:6mm}
-      .name-full{display:inline!important}
-      .name-mask{display:none!important}
-      .info-bar,.cc-bar{display:none!important}
-    }`;
+    st.textContent=`@media print{@page{size:A4 portrait;margin:6mm}.name-full{display:inline!important}.name-mask{display:none!important}.info-bar,.cc-bar{display:none!important}}`;
   }
   document.head.appendChild(st);
-
-  const A4W=748, A4H=1077;
+  const A4W=748,A4H=1077;
   const area=document.getElementById('printArea');
   if(area) area.style.zoom='';
-
   requestAnimationFrame(()=>{
     if(area){
       const grid=area.querySelector('.sgrid');
-      const rawW=grid ? grid.getBoundingClientRect().width+30 : area.scrollWidth;
+      const rawW=grid?grid.getBoundingClientRect().width+30:area.scrollWidth;
       const rawH=area.scrollHeight;
-      const sx=rawW>A4W ? A4W/rawW : 1;
-      const sy=rawH>A4H ? A4H/rawH : 1;
-      const sc=Math.min(sx,sy);
+      const sc=Math.min(rawW>A4W?A4W/rawW:1,rawH>A4H?A4H/rawH:1);
       if(sc<0.999) area.style.zoom=sc.toFixed(4);
     }
     setTimeout(()=>{
       window.print();
-      setTimeout(()=>{
-        if(area) area.style.zoom='';
-        document.getElementById(styleId)?.remove();
-        document.body.className='';
-      },600);
+      setTimeout(()=>{if(area)area.style.zoom='';document.getElementById(styleId)?.remove();document.body.className='';},600);
     },120);
   });
 }
 
-/* ═══ PRINT ALL ROOMS ═══ */
-function printAll(mode, maskNames=false){
-  const isStudent = mode === 'student';
-  const seatW = 78;
-
-  // 각 강의실 HTML 생성
-  const pages = S.rooms.map(room => {
-    const stus = roomStu(room.id);
-    if(!stus.length && room.cells.filter(c=>c.state==='active').length===0) return '';
-
-    const sorted = [...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
-    const cells  = isStudent ? sorted : [...sorted].reverse();
-
-    // col template
-    const colEmpty = Array(room.cols).fill(true);
-    room.cells.forEach(cell=>{ if(cell.state!=='void') colEmpty[cell.c]=false; });
-    let colArr = colEmpty.map(e=>e?'8px':`${seatW}px`);
-    if(!isStudent) colArr = [...colArr].reverse();
-    const colTpl = colArr.join(' ');
-
-    // class info
-    const classMap={}, classCnt={};
-    stus.forEach(s=>{ if(s.반&&s.반코드) classMap[s.반]=s.반코드; if(s.반) classCnt[s.반]=(classCnt[s.반]||0)+1; });
-    const classEntries = Object.entries(classMap).sort((a,b)=>a[0].localeCompare(b[0]));
-
-    // cards
+/* ═══ PRINT ALL ═══ */
+function printAll(mode,maskNames=false){
+  const isStudent=mode==='student',seatW=78;
+  const pages=S.rooms.map(room=>{
+    const stus=roomStu(room.id);
+    if(!stus.length&&room.cells.filter(c=>c.state==='active').length===0) return '';
+    const sorted=[...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
+    const cells=isStudent?sorted:[...sorted].reverse();
+    const colEmpty=Array(room.cols).fill(true);
+    room.cells.forEach(cell=>{if(cell.state!=='void') colEmpty[cell.c]=false;});
+    let colArr=colEmpty.map(e=>e?'8px':`${seatW}px`);
+    if(!isStudent) colArr=[...colArr].reverse();
+    const colTpl=colArr.join(' ');
+    const classMap={},classCnt={};
+    stus.forEach(s=>{if(s.반&&s.반코드)classMap[s.반]=s.반코드;if(s.반)classCnt[s.반]=(classCnt[s.반]||0)+1;});
+    const classEntries=Object.entries(classMap).sort((a,b)=>a[0].localeCompare(b[0]));
     let cardsHTML='';
     cells.forEach(cell=>{
-      if(cell.state==='void'){ cardsHTML+=`<div style="width:8px"></div>`; return; }
+      if(cell.state==='void'){cardsHTML+=`<div style="width:8px"></div>`;return;}
       if(cell.state==='blocked'){
         cardsHTML+=`<div style="width:${seatW}px;min-height:60px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fafafa;position:relative;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94a3b8">
-          <span style="position:absolute;top:3px;right:4px;font-family:'Noto Sans KR',sans-serif;font-size:9px;font-weight:700;color:#94a3b8">${cell.dn}</span>미사용</div>`; return;
+          <span style="position:absolute;top:3px;right:4px;font-size:9px;font-weight:700;color:#94a3b8">${cell.dn}</span>미사용</div>`;return;
       }
-      const stu = seatStu(room.id, cell.n);
-      const bg = stu ? (stu.성별==='남'?'#eff6ff':stu.성별==='여'?'#fdf4ff':'#f8fafc') : '#f8fafc';
-      const bd = stu ? (stu.성별==='남'?'#93c5fd':stu.성별==='여'?'#d8b4fe':'#e2e8f0') : '#e2e8f0';
-      const snColor = stu ? (stu.성별==='남'?'#60a5fa':stu.성별==='여'?'#c084fc':'#94a3b8') : '#94a3b8';
-
-      let inner = `<span style="position:absolute;top:3px;right:4px;font-family:'Noto Sans KR',sans-serif;font-size:9px;font-weight:700;color:${snColor}">${cell.dn}</span>`;
+      const stu=seatStu(room.id,cell.n);
+      const bg=stu?(stu.성별==='남'?'#eff6ff':stu.성별==='여'?'#fdf4ff':'#f8fafc'):'#f8fafc';
+      const bd=stu?(stu.성별==='남'?'#93c5fd':stu.성별==='여'?'#d8b4fe':'#e2e8f0'):'#e2e8f0';
+      const snBg=stu?(stu.성별==='남'?'#bfdbfe':stu.성별==='여'?'#e9d5ff':'#e2e8f0'):'#e2e8f0';
+      const snColor=stu?(stu.성별==='남'?'#1e40af':stu.성별==='여'?'#6b21a8':'#475569'):'#94a3b8';
+      let inner=`<span style="position:absolute;top:3px;right:4px;font-size:9px;font-weight:700;background:${snBg};color:${snColor};padding:1px 4px;border-radius:3px">${cell.dn}</span>`;
       if(stu){
-        const nameDisp = (isStudent && maskNames) ? maskName(stu.이름) : stu.이름;
-        inner += `<div style="font-size:8px;font-weight:800;color:#2563eb;margin-top:14px;line-height:1.2">${stu.반코드||''}</div>
-                  <div style="font-size:9px;font-weight:600;color:#475569;font-family:'Noto Sans KR',sans-serif;line-height:1.3">${stu.학번}</div>
-                  <div style="font-size:12px;font-weight:800;color:#0b1120;line-height:1.3;margin-top:1px">${nameDisp}</div>`;
+        const nameDisp=(isStudent&&maskNames)?maskName(stu.이름):stu.이름;
+        inner+=`<div style="font-size:8px;font-weight:800;color:#2563eb;margin-top:14px;line-height:1.2">${stu.반코드||''}</div>
+                <div style="font-size:9px;font-weight:600;color:#475569;line-height:1.3">${stu.학번}</div>
+                <div style="font-size:12px;font-weight:800;color:#0b1120;line-height:1.3;margin-top:1px">${nameDisp}</div>`;
         if(!isStudent){
-          const gb = stu.성별==='남'?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;background:#dbeafe;color:#1e40af">남</span>`
-                   : stu.성별==='여'?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;background:#fce7f3;color:#9d174d">여</span>`:'';
-          const t=stu.탐구||''; const tc=t.includes('사탐')?'background:#dcfce7;color:#14532d':t.includes('과탐')?'background:#fef9c3;color:#713f12':t.includes('사과')?'background:#ede9fe;color:#4c1d95':'';
+          const gb=stu.성별==='남'?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;background:#dbeafe;color:#1e40af">남</span>`
+                   :stu.성별==='여'?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;background:#fce7f3;color:#9d174d">여</span>`:'';
+          const t=stu.탐구||'';const tc=t.includes('사탐')?'background:#dcfce7;color:#14532d':t.includes('과탐')?'background:#fef9c3;color:#713f12':t.includes('사과')?'background:#ede9fe;color:#4c1d95':'';
           const tb=t?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;${tc}">${t}</span>`:'';
           inner+=`<div style="display:flex;gap:2px;flex-wrap:wrap;margin-top:2px">${gb}${tb}</div>`;
         }
-      } else {
-        inner += `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:12px;margin-top:10px">·</div>`;
-      }
+      }else inner+=`<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:12px;margin-top:10px">·</div>`;
       cardsHTML+=`<div style="border-radius:6px;border:1.5px solid ${bd};background:${bg};padding:4px 5px 5px;min-height:60px;width:${seatW}px;position:relative;display:flex;flex-direction:column;gap:1px">${inner}</div>`;
     });
-
-    // exam info
-    const examObj = examByName(room.examType);
-    const examDate = examObj?.date ? ` (시행일:${examObj.date})` : '';
-
-    // class info bar (proctor only)
-    const ccHtml = !isStudent && Object.keys(classCnt).length
-      ? `<div style="padding:4px 0;font-size:10px;display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">
+    const examObj=examByName(room.examType);
+    const examDate=examObj?.date?` (시행일:${examObj.date})`:'';
+    const ccHtml=!isStudent&&Object.keys(classCnt).length
+      ?`<div style="padding:4px 0;font-size:10px;display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">
           <span style="font-weight:700;color:#166534">반별 인원</span>
           ${Object.entries(classCnt).sort((a,b)=>a[0].localeCompare(b[0])).map(([b,c])=>
             `<span style="background:#dcfce7;color:#14532d;font-weight:700;padding:1px 7px;border-radius:10px;font-size:9px">${b} ${c}명</span>`).join('')}
           <span style="margin-left:auto;font-size:9px;color:#64748b">계 ${stus.length}명</span>
-         </div>` : '';
-
-    const infoHtml = classEntries.length
-      ? `<div style="font-size:10px;display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">
-          <span style="font-weight:700;color:#94a3b8">반 구성</span>
+         </div>`:'';
+    // ▼ "반 코드" 로 수정
+    const infoHtml=classEntries.length
+      ?`<div style="font-size:10px;display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">
+          <span style="font-weight:700;color:#94a3b8">반 코드</span>
           ${classEntries.map(([b,c])=>`<span style="background:#dbeafe;color:#1e40af;font-weight:800;padding:1px 6px;border-radius:10px;font-size:9px">${b}·${c}</span>`).join('')}
-         </div>` : '';
-
-    const noticeHtml = room.notice
-      ? `<div style="font-size:10px;font-weight:600;color:#78350f;background:#fefce8;border-left:3px solid #fde047;padding:3px 7px;margin-bottom:4px;border-radius:2px">${room.notice}</div>` : '';
-
-    const boardTop    = isStudent ? `<div style="margin:4px 0;background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7)">칠 판</div>` : '';
-    const boardBottom = !isStudent ? `<div style="margin:4px 0;background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7)">칠 판</div>` : '';
-
-    return `
-      <div style="page-break-after:always;padding:0">
-        <!-- 인쇄 헤더 -->
-        <div style="border-bottom:2px solid #0b1120;padding-bottom:6px;margin-bottom:6px">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <span style="font-size:20px;font-weight:900">${room.name}</span>
-            ${room.examType?`<span style="font-size:13px;font-weight:700;color:#2563eb">${room.examType}</span>`:''}
-            ${examDate?`<span style="font-size:11px;color:#64748b">${examDate}</span>`:''}
-            <span style="font-size:11px;color:#94a3b8">${isStudent?'[학생용]':'[시감자용]'}</span>
-          </div>
-          ${noticeHtml}
-        </div>
-        ${isStudent?infoHtml:''}
-        ${!isStudent?ccHtml:''}
-        ${!isStudent?infoHtml:''}
-        ${boardTop}
-        <div style="display:grid;grid-template-columns:${colTpl};gap:3px;width:fit-content">${cardsHTML}</div>
-        ${boardBottom}
-      </div>`;
+         </div>`:'';
+    const noticeHtml=room.notice?`<div style="font-size:10px;font-weight:600;color:#78350f;background:#fefce8;border-left:3px solid #fde047;padding:3px 7px;margin-bottom:4px;border-radius:2px">${room.notice}</div>`:'';
+    const boardTop=isStudent?`<div style="margin:4px 0;background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7)">칠 판</div>`:'';
+    const boardBottom=!isStudent?`<div style="margin:4px 0;background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7)">칠 판</div>`:'';
+    return`<div style="page-break-after:always;padding:0">
+      <div style="border-bottom:2px solid #0b1120;padding-bottom:6px;margin-bottom:6px">
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <span style="font-size:20px;font-weight:900">${room.name}</span>
+          ${room.examType?`<span style="font-size:13px;font-weight:700;color:#2563eb">${room.examType}</span>`:''}
+          ${examDate?`<span style="font-size:11px;color:#64748b">${examDate}</span>`:''}
+          <span style="font-size:11px;color:#94a3b8">${isStudent?'[학생용]':'[시감자용]'}</span>
+        </div>${noticeHtml}
+      </div>
+      ${isStudent?infoHtml:''}${!isStudent?ccHtml:''}${!isStudent?infoHtml:''}
+      ${boardTop}
+      <div style="display:grid;grid-template-columns:${colTpl};gap:3px;width:fit-content">${cardsHTML}</div>
+      ${boardBottom}
+    </div>`;
   }).filter(Boolean).join('');
-
-  if(!pages){ toast('배정된 학생이 없습니다','err'); return; }
-
-  // 새 창에서 인쇄
-  const w = window.open('','_blank');
+  if(!pages){toast('배정된 학생이 없습니다','err');return;}
+  const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <title>${isStudent?'학생용':'시감자용'} 전체 배치표</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-    <style>
-      *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:'Noto Sans KR',sans-serif;background:white;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      @media print{
-        @page{size:A4 portrait;margin:6mm}
-        body{margin:0}
-        div[style*="page-break-after"]{page-break-after:always}
-        div[style*="page-break-after"]:last-child{page-break-after:avoid}
-      }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Noto Sans KR',sans-serif;background:white;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    @media print{@page{size:A4 portrait;margin:6mm}body{margin:0}div[style*="page-break-after"]{page-break-after:always}div[style*="page-break-after"]:last-child{page-break-after:avoid}}</style>
   </head><body>${pages}</body></html>`);
-  w.document.close();
-  w.onload=()=>{ w.focus(); w.print(); };
+  w.document.close();w.onload=()=>{w.focus();w.print();};
   toast(`${S.rooms.length}개 강의실 ${isStudent?'학생용':'시감자용'} 인쇄 준비됨`,'ok');
 }
+
+/* ═══ RESET ═══ */
 function confirmReset(){
-  if(!confirm('배정된 학생 데이터를 초기화합니다.\n강의실 배열은 유지됩니다.\n\n계속하시겠습니까?')) return;
-  if(!confirm('⚠ 이 작업은 되돌릴 수 없습니다.\n정말 초기화하시겠습니까?')) return;
+  if(!confirm('배정된 학생 데이터를 초기화합니다.\n강의실 배열은 유지됩니다.\n\n계속하시겠습니까?'))return;
+  if(!confirm('⚠ 이 작업은 되돌릴 수 없습니다.\n정말 초기화하시겠습니까?'))return;
   S.students=[];S.swap=null;saveAll();renderAll();toast('학생 데이터 초기화 완료 (배열 유지)','ok');
 }
 
@@ -1701,7 +1556,6 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ═══ INIT ═══ */
-// onSnapshot 내부에서 renderAll()을 호출하므로 load()만 호출
 load();
 </script>
 </body>
