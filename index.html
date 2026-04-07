@@ -733,8 +733,22 @@ const roomStu=id=>S.students.filter(s=>s.고사장===id);
 const seatStu=(rid,n)=>S.students.find(s=>s.고사장===rid&&+s.자리===+n);
 const maskName=n=>{
   if(!n||n.length<=1) return n;
-  if(n.length===2) return n[0]+'●';
-  return n[0]+n.slice(1,-1).split('').map(()=>'●').join('')+n[n.length-1];
+  // 끝에 붙은 영문/숫자 접미사 분리 (예: A, B, 2 등)
+  const match=n.match(/^([\s\S]*?)([A-Za-z0-9]*)$/);
+  const core=match[1];   // 한글 이름 부분
+  const suffix=match[2]; // 끝 영문/숫자
+  // core가 비어있으면 그냥 반환
+  if(!core) return n;
+  let masked;
+  if(core.length===1){
+    masked=core+'●'; // 한글 1자면 뒤에 ● 하나
+  } else if(core.length===2){
+    masked=core[0]+'●'; // 2자: 첫글자 + ●
+  } else {
+    // 3자 이상: 첫글자 + 가운데 전부 ● + 마지막 글자
+    masked=core[0]+core.slice(1,-1).split('').map(()=>'●').join('')+core[core.length-1];
+  }
+  return masked+suffix;
 };
 const gBdg=s=>s.성별==='남'?'<span class="bdg bdg-m">남</span>':s.성별==='여'?'<span class="bdg bdg-f">여</span>':'';
 const tBdg=s=>{const t=s.탐구||'';if(!t)return'';const cl=t.includes('사탐')?'bdg-sat':t.includes('과탐')?'bdg-gwt':t.includes('사과')?'bdg-sag':'';return`<span class="bdg ${cl}">${t}</span>`;};
