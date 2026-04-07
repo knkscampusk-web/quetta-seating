@@ -611,10 +611,17 @@ function pushToFirebase(){
   _saveTimer=setTimeout(()=>{
     const stat=document.getElementById('sync-stat');
     if(stat){stat.textContent='저장 중...';stat.style.color='#fde68a';}
+    _syncing=true; // 내가 저장 중 — onSnapshot이 덮어씌우지 않도록
     DOC.set({rooms:S.rooms,students:S.students,examTypes:S.examTypes,snapshots:S.snapshots,
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
-      .then(()=>{if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';}})
-      .catch(e=>{console.error(e);if(stat){stat.textContent='⚠ 실패';stat.style.color='#fca5a5';}});
+      .then(()=>{
+        if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';}
+        setTimeout(()=>{_syncing=false;},1500); // 1.5초 후 동기화 재허용
+      })
+      .catch(e=>{
+        console.error(e);_syncing=false;
+        if(stat){stat.textContent='⚠ 실패';stat.style.color='#fca5a5';}
+      });
   },400);
 }
 function saveLayoutNow(){pushToFirebase();toast('배열 저장됨 ✅','ok');}
@@ -943,6 +950,7 @@ function renderGrid(room,isProctor){
           ${room.examType?`<span style="font-size:11px;font-weight:700;color:var(--blue)">${room.examType}</span>`:''}
           <span class="card-sub">${isProctor?'시감자용 · 위아래 반전':'학생용'}</span>
         </div>
+        <button class="btn btn-danger btn-sm" onclick="confirmResetRoom('${room.id}')">🗑 이 강의실 배정 초기화</button>
       </div>
       ${infoBar}${ccBar}${noticeEdit}
       ${!isProctor?'<div class="bbar">칠 판</div>':''}
@@ -1189,6 +1197,8 @@ function allState(roomId,state){
 
 /* ═══ ROOM MANAGEMENT ═══ */
 function switchRoom(id){
+  // 배열편집 중에 강의실 탭 전환할 때도 자동 저장
+  if(S.view==='edit') pushToFirebase();
   S.active=id;S.swap=null;S.editStudentMode=false;
   document.getElementById('exam-row').style.display=(id==='__stats__')?'none':'';
   renderTabs();renderMain();
@@ -1419,6 +1429,10 @@ function removeSnap(id){S.snapshots=S.snapshots.filter(s=>s.id!==id);saveAll();r
 
 /* ═══ VIEW & PRINT ═══ */
 function setView(v){
+  // 배열편집 모드에서 다른 뷰로 전환할 때 자동 Firebase 저장
+  if(S.view==='edit' && v!=='edit'){
+    pushToFirebase();
+  }
   S.view=v;S.swap=null;S.editStudentMode=false;
   ['student','proctor','edit'].forEach(n=>document.getElementById('vb-'+n)?.classList.toggle('on',n===v));
   if(S.active==='__stats__') switchRoom(S.rooms[0]?.id||null);
@@ -1555,10 +1569,23 @@ function printAll(mode,maskNames=false){
 }
 
 /* ═══ RESET ═══ */
+/* ═══ RESET ═══ */
 function confirmReset(){
-  if(!confirm('배정된 학생 데이터를 초기화합니다.\n강의실 배열은 유지됩니다.\n\n계속하시겠습니까?'))return;
-  if(!confirm('⚠ 이 작업은 되돌릴 수 없습니다.\n정말 초기화하시겠습니까?'))return;
+  if(!confirm('배정된 학생 데이터를 초기화합니다.\n강의실 배열은 유지됩니다.\n\n계속하시겠습니까?')) return;
+  const pw = prompt('⚠ 전체 초기화 비밀번호를 입력하세요:');
+  if(pw === null) return; // 취소
+  if(pw !== '6688'){ alert('비밀번호가 틀렸습니다.'); return; }
+  if(!confirm('⚠ 이 작업은 되돌릴 수 없습니다.\n정말 초기화하시겠습니까?')) return;
   S.students=[];S.swap=null;saveAll();renderAll();toast('학생 데이터 초기화 완료 (배열 유지)','ok');
+}
+
+function confirmResetRoom(roomId){
+  const cnt = roomStu(roomId).length;
+  if(!confirm(`"${roomId}" 강의실에 배정된 학생 ${cnt}명을 초기화합니다.\n계속하시겠습니까?`)) return;
+  S.students = S.students.filter(s => s.고사장 !== roomId);
+  S.students.forEach((s,i)=>s._i=i);
+  saveAll(); renderAll();
+  toast(`${roomId} 배정 초기화 완료`,'ok');
 }
 
 /* ═══ MODAL ═══ */
