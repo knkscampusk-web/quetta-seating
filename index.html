@@ -277,6 +277,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
   </div>
   <div class="hdr-right">
     <span id="sync-stat" style="font-size:10px;font-weight:600;color:#86efac;opacity:.8"></span>
+    <button class="btn btn-hdr btn-sm" onclick="openModal('search-modal')">🔍 학생 검색</button>
     <button class="btn btn-hdr btn-sm" onclick="openUplModal('all')">📤 전체 업로드</button>
     <button class="btn btn-hdr btn-sm" onclick="doSaveSnap()">💾 저장</button>
     <button class="btn btn-hdr btn-sm" onclick="openSettings()">⚙ 설정</button>
@@ -532,6 +533,23 @@ input,select,textarea{font-family:inherit;cursor:auto}
     <div class="mfoot">
       <button class="btn btn-sec" onclick="closeModal('add-stu-modal')">취소</button>
       <button class="btn btn-pri" onclick="saveAddStu()">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- SEARCH MODAL -->
+<div class="overlay" id="search-modal" onclick="ovClose(event,'search-modal')">
+  <div class="modal" style="width:560px">
+    <div class="mhd">
+      <span class="mhd-title">🔍 학생 검색</span>
+      <button class="btn btn-ghost" onclick="closeModal('search-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input class="fi" id="search-q" placeholder="이름 또는 학번 입력..." style="flex:1;font-size:14px"
+          oninput="doSearch(this.value)" onkeydown="if(event.key==='Escape')closeModal('search-modal')">
+      </div>
+      <div id="search-results"></div>
     </div>
   </div>
 </div>
@@ -1723,7 +1741,72 @@ function confirmResetRoom(roomId){
 }
 
 /* ═══ MODAL ═══ */
-function openModal(id){document.getElementById(id).classList.add('on');if(id==='settings-modal')renderSettingsContent();}
+function openModal(id){
+  document.getElementById(id).classList.add('on');
+  if(id==='settings-modal') renderSettingsContent();
+  if(id==='search-modal'){
+    document.getElementById('search-results').innerHTML='<div class="empty-state" style="padding:30px;font-size:13px">이름 또는 학번을 입력하세요</div>';
+    document.getElementById('search-q').value='';
+    setTimeout(()=>document.getElementById('search-q')?.focus(),100);
+  }
+}
+
+function doSearch(q){
+  const el=document.getElementById('search-results');
+  q=q.trim();
+  if(!q){el.innerHTML='<div class="empty-state" style="padding:30px;font-size:13px">이름 또는 학번을 입력하세요</div>';return;}
+  const hits=S.students.filter(s=>
+    s.이름.includes(q)||s.학번.includes(q)
+  );
+  if(!hits.length){
+    el.innerHTML='<div class="empty-state" style="padding:30px;font-size:13px;color:#7f1d1d">검색 결과 없음</div>';return;
+  }
+  el.innerHTML=hits.map(s=>{
+    const room=getRoom(s.고사장);
+    const cell=room?.cells.find(c=>c.n===+s.자리);
+    const dnLabel=cell?`${cell.dn}번`:(s.자리?`업로드${s.자리}번`:'미배정');
+    const gBadge=s.성별==='남'?'<span class="bdg bdg-m" style="font-size:9px">남</span>':s.성별==='여'?'<span class="bdg bdg-f" style="font-size:9px">여</span>':'';
+    const tBadge=s.탐구?`<span class="bdg ${s.탐구.includes('사탐')?'bdg-sat':s.탐구.includes('과탐')?'bdg-gwt':'bdg-sag'}" style="font-size:9px">${s.탐구}</span>`:'';
+    return`<div class="li-item" style="cursor:pointer" onclick="goToSeat('${s.고사장||''}',${s.자리||0});closeModal('search-modal')">
+      <div style="display:flex;flex-direction:column;gap:4px;flex:1">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:15px;font-weight:800;color:var(--ink)">${s.이름}</span>
+          ${gBadge}${tBadge}
+          <span style="font-family:'Noto Sans KR';font-size:12px;color:var(--sl400)">${s.학번}</span>
+        </div>
+        <div style="display:flex;gap:12px;font-size:12px;color:var(--sl500)">
+          <span>반 <b style="color:var(--ink)">${s.반||'—'}</b></span>
+          <span>반코드 <b style="color:var(--blue)">${s.반코드||'—'}</b></span>
+          <span>강의실 <b style="color:var(--ink)">${s.고사장||'미배정'}</b></span>
+          <span>좌석 <b style="color:var(--ink)">${dnLabel}</b></span>
+        </div>
+      </div>
+      ${s.고사장?'<span style="font-size:11px;color:var(--sl400)">→ 이동</span>':''}
+    </div>`;
+  }).join('');
+}
+
+function goToSeat(roomId,seatN){
+  if(!roomId) return;
+  switchRoom(roomId);
+  // 해당 강의실로 이동 후 잠시 후 해당 좌석 하이라이트
+  setTimeout(()=>{
+    const room=getRoom(roomId);
+    const cell=room?.cells.find(c=>c.n===+seatN);
+    if(!cell) return;
+    // 해당 dn으로 셀 찾아 스크롤
+    const allCells=document.querySelectorAll('.sc');
+    allCells.forEach(el=>{
+      const sn=el.querySelector('.sn');
+      if(sn&&sn.textContent==String(cell.dn)){
+        el.scrollIntoView({behavior:'smooth',block:'center'});
+        el.style.outline='3px solid var(--blue)';
+        el.style.outlineOffset='2px';
+        setTimeout(()=>{el.style.outline='';el.style.outlineOffset='';},2500);
+      }
+    });
+  },300);
+}
 function closeModal(id){document.getElementById(id).classList.remove('on');}
 function ovClose(e,id){if(e.target===e.currentTarget)closeModal(id);}
 
