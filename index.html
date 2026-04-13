@@ -680,14 +680,24 @@ function load(){
     if(_syncing) return;
     if(snap.exists){
       const d=snap.data();
-      if(d.rooms?.length)     S.rooms    =d.rooms.map(migrateRoom);
-      if(d.students?.length)  S.students =d.students;
+      if(d.rooms?.length){
+        S.rooms=d.rooms.map(migrateRoom);
+      } else {
+        // Firebase에 데이터는 있지만 rooms가 비어있음 → localStorage 복구 시도
+        const migrated=migrateFromLocalStorage();
+        if(!migrated) S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));
+        S.active=S.rooms[0]?.id||null;
+        saveAll(); // 복구한 데이터를 Firebase에 다시 저장
+        renderAll();return;
+      }
+      if(d.students?.length)  S.students=d.students;
       else if(d.students)     S.students=[];
       if(d.examTypes?.length) S.examTypes=d.examTypes.map(et=>typeof et==='string'?{name:et,date:''}:et);
       if(d.snapshots?.length) S.snapshots=d.snapshots;
       else if(d.snapshots)    S.snapshots=[];
       if(!S.active||!S.rooms.find(r=>r.id===S.active)) S.active=S.rooms[0]?.id||null;
     } else {
+      // Firebase에 문서 자체가 없음
       const migrated=migrateFromLocalStorage();
       if(!migrated){S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));S.active=S.rooms[0]?.id||null;}
       saveAll();
@@ -701,15 +711,18 @@ function load(){
   });
 }
 function migrateFromLocalStorage(){
-  const KEYS=['qtt_v9','qtt_v8','qtt_v7','qtt_v6','qtt_v5','qtt_v4'];
+  // qtt_temp: 배열편집 중 임시저장본 (가장 최신)
+  const KEYS=['qtt_temp','qtt_v9','qtt_v8','qtt_v7','qtt_v6','qtt_v5','qtt_v4'];
   for(const key of KEYS){
     try{
       const d=JSON.parse(localStorage.getItem(key)||'{}');
       if(d.rooms?.length){
-        S.rooms=d.rooms.map(migrateRoom);S.students=d.students||[];
-        S.examTypes=(d.examTypes||[]).map(et=>typeof et==='string'?{name:et,date:''}:et);
-        S.snapshots=d.snapshots||[];S.active=S.rooms[0]?.id||null;
-        toast('기존 데이터 Firebase로 업로드됨 ✅','ok');return true;
+        S.rooms=d.rooms.map(migrateRoom);
+        if(d.students?.length) S.students=d.students||[];
+        if(d.examTypes?.length) S.examTypes=(d.examTypes||[]).map(et=>typeof et==='string'?{name:et,date:''}:et);
+        if(d.snapshots?.length) S.snapshots=d.snapshots||[];
+        S.active=S.rooms[0]?.id||null;
+        toast(`localStorage(${key})에서 데이터 복구됨 ✅`,'ok');return true;
       }
     }catch(e){}
   }
