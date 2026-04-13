@@ -86,13 +86,13 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .grid-wrap{padding:5px 15px 14px;overflow-x:auto}
 .sgrid{display:grid;gap:4px;width:fit-content;align-items:start}
 .sc{border-radius:7px;border:1.5px solid var(--sl200);background:var(--sl50);
-  padding:4px 6px 5px;min-height:72px;width:82px;position:relative;
+  padding:4px 6px 5px;min-height:72px;width:100%;position:relative;
   cursor:grab;transition:border-color .1s,box-shadow .1s,transform .07s,opacity .15s;
   display:flex;flex-direction:column;gap:1px;user-select:none}
 .sc:hover{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-lt)}
 .sc:active{transform:scale(.97)}
 .sc.void{width:28px;min-height:72px;border:none!important;background:transparent;padding:0;pointer-events:none;border-radius:0}
-.sc.blocked{background:#f8f8f8;border:1.5px solid var(--sl300);cursor:not-allowed;width:82px;min-height:72px}
+.sc.blocked{background:#f8f8f8;border:1.5px solid var(--sl300);cursor:not-allowed;min-height:72px}
 .sc.blocked:hover{border-color:var(--sl300)!important;box-shadow:none!important}
 .sc.male{background:var(--m-bg);border-color:var(--m-bd)}
 .sc.female{background:var(--f-bg);border-color:var(--f-bd)}
@@ -948,7 +948,7 @@ function renderGrid(room,isProctor){
   cells.forEach(cell=>{
     if(cell.state==='void'){html+=`<div class="sc void"></div>`;return;}
     if(cell.state==='blocked'){
-      html+=`<div class="sc blocked" style="width:${seatW}px"><div class="sn-wrap"><span class="sn">${cell.dn}</span></div><div class="s-blocked-lbl">미사용</div></div>`;return;
+      html+=`<div class="sc blocked"><div class="sn-wrap"><span class="sn">${cell.dn}</span></div><div class="s-blocked-lbl">미사용</div></div>`;return;
     }
     const stu=seatStu(room.id,cell.n);
     let cls=stu?(stu.성별==='남'?'male':stu.성별==='여'?'female':''):'';
@@ -962,7 +962,7 @@ function renderGrid(room,isProctor){
     }else inner+=`<div class="s-empty">·</div>`;
     const ddSrc=stu?`draggable="true" ondragstart="onDragStart(event,'seat','${room.id}',${cell.n},${stu._i})" ondragend="onDragEnd(event)"`:'';
     const ddTgt=`ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${room.id}',${cell.n})"`;
-    html+=`<div class="sc ${cls}" style="width:${seatW}px;min-height:72px" ${ddSrc} ${ddTgt} onclick="clickSeat('${room.id}',${cell.n})">${inner}</div>`;
+    html+=`<div class="sc ${cls}" ${ddSrc} ${ddTgt} onclick="clickSeat('${room.id}',${cell.n})">${inner}</div>`;
   });
   const ua=stus.filter(s=>!validNs.has(+s.자리));
   const editCls=S.editStudentMode?'edit-student-mode':'';
