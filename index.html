@@ -238,23 +238,26 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .phb-notice{margin-top:5px;font-size:11px;font-weight:600;color:#78350f;
   background:#fefce8;border-left:3px solid #fde047;padding:4px 8px;border-radius:3px}
 @media print{
-  @page{margin:6mm}
+  @page{margin:8mm}
   #hdr,#tabs,#bar,#swap-bar,.ua-panel,#toast,.overlay,.card-hd,
   .info-bar,.cc-bar,.stats-filter-bar,[data-noprint]{display:none!important}
   body,html{background:white!important;overflow:visible!important}
   #main{padding:0!important}
   #printArea{overflow:visible!important;box-shadow:none!important;border:none!important;border-radius:0!important}
   .card{border:none!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important}
-  .grid-wrap{padding:2px 0 0!important;overflow:visible!important}
-  .sgrid{gap:3px!important}
-  /* 인쇄 시 모든 좌석 72px로 통일, 인라인 style 덮어쓰기 */
+  .grid-wrap{padding:1px 0 0!important;overflow:visible!important}
+  .sgrid{gap:2px!important}
+  /* 인쇄 시 좌석 크기 — zoom으로 전체 비율 조정하므로 72px 고정 */
   .sc{min-height:54px!important;width:72px!important;break-inside:avoid;flex-shrink:0!important}
   .sc.void{width:28px!important;min-height:54px!important;background:transparent!important;border:none!important;flex-shrink:0!important}
   .sc.blocked{width:72px!important;min-height:54px!important;flex-shrink:0!important}
   .s-name{font-size:11px!important}
   .s-hak{font-size:9px!important}
+  .s-ban{margin-top:12px!important;font-size:8px!important}
   .sn{font-size:9px!important}
-  .bbar{margin:2px 0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* 세로 여백 최소화 */
+  .bbar{margin:1px 0!important;padding:4px 10px!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .print-hdr-block{margin-bottom:4px!important;padding-bottom:4px!important}
   .sc.male,.sc.female,.bdg,.cc-bar{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-hdr-block{display:block!important}
   body.ps .name-full{display:none!important}
@@ -1672,11 +1675,9 @@ function executePrint(maskNames){
   const styleId='__pstyle';document.getElementById(styleId)?.remove();
   const st=document.createElement('style');st.id=styleId;
 
-  // 공통 인쇄 CSS: 가로 가득 채우고 가운데 정렬
   const commonPrint=`
     @page{size:A4 portrait;margin:8mm}
     #printArea{margin:0 auto;width:fit-content}
-    #printGrid{overflow:visible!important}
     .sgrid{margin:0 auto}
   `;
   if(isProctor){
@@ -1706,18 +1707,24 @@ function executePrint(maskNames){
     }
   }
 
-  // A4 인쇄 가능 가로폭: 210mm - 여백 8mm×2 = 194mm ≈ 734px
-  // 높이는 여러 페이지로 흘러도 되므로 가로만 기준으로 zoom 계산
-  const A4W=734;
+  // A4 portrait 인쇄 가능 영역: margin 8mm×2 제외
+  // 210mm - 16mm = 194mm ≈ 734px (96dpi 기준)
+  // 297mm - 16mm = 281mm ≈ 1063px
+  const A4W=734, A4H=1063;
   const area=document.getElementById('printArea');
   if(area) area.style.zoom='';
 
   requestAnimationFrame(()=>{
     if(area){
       const grid=area.querySelector('.sgrid');
-      const rawW=grid?grid.scrollWidth:area.scrollWidth;
-      // 가로만 기준 — 세로는 자연스럽게 여러 페이지로
-      const sc=rawW>A4W ? A4W/rawW : 1;
+      // 가로: 그리드 실제 너비 기준
+      const rawW=grid ? grid.scrollWidth : area.scrollWidth;
+      // 세로: printArea 전체 높이 기준 (헤더+그리드+칠판 포함)
+      const rawH=area.scrollHeight;
+      const sx=rawW>A4W ? A4W/rawW : 1;
+      const sy=rawH>A4H ? A4H/rawH : 1;
+      // 가로·세로 중 더 작은 비율로 맞춰 한 장에 전부 담기
+      const sc=Math.min(sx,sy);
       if(sc<0.999) area.style.zoom=sc.toFixed(4);
     }
     setTimeout(()=>{
