@@ -996,7 +996,7 @@ function renderGrid(room,isProctor){
       ${examDate?`<span class="phb-date">${examDate}</span>`:''}
       <span class="phb-type">${isProctor?'[시감자용]':'[학생용]'}</span>
     </div>
-    ${printClassLine?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+    ${printClassLine&&!isProctor?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
       <span style="font-size:10px;font-weight:700;color:var(--sl400);margin-right:2px">반 코드</span>
       ${printClassLine}
     </div>`:''}
@@ -1605,9 +1605,11 @@ function executePrint(maskNames){
 
   // grid-template-columns를 72px 기준으로 재설정 (blocked/void 포함 모든 셀 일치)
   const room=getRoom(S.active);
+  let _origColTpl=''; // 원래 colTpl 저장용
   if(room){
     const grid=document.querySelector('#printGrid .sgrid');
     if(grid){
+      _origColTpl=grid.style.gridTemplateColumns; // 원래 값 백업
       const colEmpty=Array(room.cols).fill(true);
       room.cells.forEach(c=>{if(c.state!=='void') colEmpty[c.c]=false;});
       let cols=colEmpty.map(e=>e?'28px':'72px');
@@ -1630,12 +1632,12 @@ function executePrint(maskNames){
     setTimeout(()=>{
       window.print();
       setTimeout(()=>{
-        if(area)area.style.zoom='';
+        if(area) area.style.zoom='';
         document.getElementById(styleId)?.remove();
         document.body.className='';
-        // grid 복원
+        // grid 원래 값으로 복원 (빈 문자열로 지우면 안 됨)
         const g=document.querySelector('#printGrid .sgrid');
-        if(g) g.style.gridTemplateColumns='';
+        if(g) g.style.gridTemplateColumns=_origColTpl;
       },600);
     },120);
   });
