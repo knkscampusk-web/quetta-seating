@@ -1671,25 +1671,33 @@ function executePrint(maskNames){
   const isProctor=S.view==='proctor';
   const styleId='__pstyle';document.getElementById(styleId)?.remove();
   const st=document.createElement('style');st.id=styleId;
+
+  // 공통 인쇄 CSS: 가로 가득 채우고 가운데 정렬
+  const commonPrint=`
+    @page{size:A4 portrait;margin:8mm}
+    #printArea{margin:0 auto;width:fit-content}
+    #printGrid{overflow:visible!important}
+    .sgrid{margin:0 auto}
+  `;
   if(isProctor){
     document.body.className='pp';
-    st.textContent=`@media print{@page{size:A4 portrait;margin:6mm}.name-full{display:inline!important}.name-mask{display:none!important}.cc-bar{display:flex!important}.info-bar{display:flex!important}}`;
+    st.textContent=`@media print{${commonPrint}.name-full{display:inline!important}.name-mask{display:none!important}.cc-bar{display:flex!important}.info-bar{display:flex!important}}`;
   }else if(maskNames){
     document.body.className='ps';
-    st.textContent=`@media print{@page{size:A4 portrait;margin:6mm}.name-full{display:none!important}.name-mask{display:inline!important}.info-bar,.cc-bar{display:none!important}}`;
+    st.textContent=`@media print{${commonPrint}.name-full{display:none!important}.name-mask{display:inline!important}.info-bar,.cc-bar{display:none!important}}`;
   }else{
     document.body.className='';
-    st.textContent=`@media print{@page{size:A4 portrait;margin:6mm}.name-full{display:inline!important}.name-mask{display:none!important}.info-bar,.cc-bar{display:none!important}}`;
+    st.textContent=`@media print{${commonPrint}.name-full{display:inline!important}.name-mask{display:none!important}.info-bar,.cc-bar{display:none!important}}`;
   }
   document.head.appendChild(st);
 
-  // grid-template-columns를 72px 기준으로 재설정 (blocked/void 포함 모든 셀 일치)
+  // grid-template-columns를 72px 기준으로 재설정
   const room=getRoom(S.active);
-  let _origColTpl=''; // 원래 colTpl 저장용
+  let _origColTpl='';
   if(room){
     const grid=document.querySelector('#printGrid .sgrid');
     if(grid){
-      _origColTpl=grid.style.gridTemplateColumns; // 원래 값 백업
+      _origColTpl=grid.style.gridTemplateColumns;
       const colEmpty=Array(room.cols).fill(true);
       room.cells.forEach(c=>{if(c.state!=='void') colEmpty[c.c]=false;});
       let cols=colEmpty.map(e=>e?'28px':'72px');
@@ -1698,15 +1706,18 @@ function executePrint(maskNames){
     }
   }
 
-  const A4W=748,A4H=1077;
+  // A4 인쇄 가능 가로폭: 210mm - 여백 8mm×2 = 194mm ≈ 734px
+  // 높이는 여러 페이지로 흘러도 되므로 가로만 기준으로 zoom 계산
+  const A4W=734;
   const area=document.getElementById('printArea');
   if(area) area.style.zoom='';
+
   requestAnimationFrame(()=>{
     if(area){
       const grid=area.querySelector('.sgrid');
-      const rawW=grid?grid.getBoundingClientRect().width+30:area.scrollWidth;
-      const rawH=area.scrollHeight;
-      const sc=Math.min(rawW>A4W?A4W/rawW:1,rawH>A4H?A4H/rawH:1);
+      const rawW=grid?grid.scrollWidth:area.scrollWidth;
+      // 가로만 기준 — 세로는 자연스럽게 여러 페이지로
+      const sc=rawW>A4W ? A4W/rawW : 1;
       if(sc<0.999) area.style.zoom=sc.toFixed(4);
     }
     setTimeout(()=>{
@@ -1715,7 +1726,6 @@ function executePrint(maskNames){
         if(area) area.style.zoom='';
         document.getElementById(styleId)?.remove();
         document.body.className='';
-        // grid 원래 값으로 복원 (빈 문자열로 지우면 안 됨)
         const g=document.querySelector('#printGrid .sgrid');
         if(g) g.style.gridTemplateColumns=_origColTpl;
       },600);
