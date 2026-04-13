@@ -103,10 +103,10 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .edit-student-mode .sc.has-student:hover{border-color:var(--amber)!important;box-shadow:0 0 0 2px var(--amber-lt)!important}
 .sn-wrap{position:absolute;top:3px;right:4px}
 .sn{font-family:'Noto Sans KR',sans-serif;font-size:10px;font-weight:700;
-  background:var(--sl200);color:#475569;padding:1px 5px;border-radius:4px;line-height:1.4;display:inline-block}
-.sc.male .sn{background:#bfdbfe;color:#1e40af}
-.sc.female .sn{background:#e9d5ff;color:#6b21a8}
-.sc.blocked .sn{background:var(--sl100);color:var(--sl300)}
+  background:#1e293b;color:#fff;padding:1px 5px;border-radius:4px;line-height:1.4;display:inline-block}
+.sc.male .sn{background:#1e293b;color:#fff}
+.sc.female .sn{background:#1e293b;color:#fff}
+.sc.blocked .sn{background:#94a3b8;color:#fff}
 .s-ban{font-size:9px;font-weight:800;color:var(--blue);margin-top:15px;line-height:1.2}
 .s-hak{font-size:10px;font-weight:600;color:var(--sl700);line-height:1.4}
 .s-name{font-size:13px;font-weight:800;color:var(--ink);line-height:1.3;margin-top:1px}
@@ -966,6 +966,10 @@ function renderGrid(room,isProctor){
   const colTpl=getColTemplate(room,isProctor,seatW);
   const examObj=examByName(room.examType);
   const examDate=examObj?.date?`(시행일:${examObj.date})`:'';
+  // 인쇄용 반코드 라인 (강의실에 있는 반들 정리)
+  const printClassLine=classEntries.length
+    ?classEntries.map(([ban,code])=>`<span style="font-size:11px;font-weight:700;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;margin-right:4px">${ban} · ${code}</span>`).join('')
+    :'';
   const prtHdr=`<div class="print-hdr-block">
     <div class="phb-top">
       <span class="phb-room">${room.name}</span>
@@ -973,6 +977,10 @@ function renderGrid(room,isProctor){
       ${examDate?`<span class="phb-date">${examDate}</span>`:''}
       <span class="phb-type">${isProctor?'[시감자용]':'[학생용]'}</span>
     </div>
+    ${printClassLine?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+      <span style="font-size:10px;font-weight:700;color:var(--sl400);margin-right:2px">반 코드</span>
+      ${printClassLine}
+    </div>`:''}
     ${room.notice?`<div class="phb-notice">${room.notice}</div>`:''}
   </div>`;
   const noticeEdit=`<div style="padding:8px 15px;background:var(--sl50);border-bottom:1px solid var(--sl200)" data-noprint>
@@ -1207,10 +1215,31 @@ function onDrop(e,tRid,tN){
   if(tc?.state==='blocked'){toast('미사용 좌석입니다','err');return;}
   if(dragSrc.type==='seat'){
     if(dragSrc.roomId===tRid&&dragSrc.cellN===tN) return;
-    doSwap(dragSrc.roomId,dragSrc.cellN,tRid,tN);
+    const targetStu=S.students.find(s=>s.고사장===tRid&&+s.자리===tN);
+    if(targetStu){
+      // 학생이 있는 자리로 드래그 → 맞바꾸기 or 밀기 선택
+      const choice=confirm(
+        `"${targetStu.이름}"이 이미 앉아있는 자리입니다.\n\n[확인] → 두 학생 맞바꾸기\n[취소] → 이 자리부터 뒤 학생 밀고 삽입`
+      );
+      if(choice){
+        // 맞바꾸기
+        doSwap(dragSrc.roomId,dragSrc.cellN,tRid,tN);
+      } else {
+        // 밀기 삽입
+        saveUndo();
+        const srcStu=S.students.find(s=>s.고사장===dragSrc.roomId&&+s.자리===dragSrc.cellN);
+        if(!srcStu) return;
+        srcStu.고사장='';srcStu.자리=0; // 원래 자리 먼저 비우기
+        shiftForwardFrom(tRid,tN);       // tN부터 뒤로 밀기
+        srcStu.고사장=tRid;srcStu.자리=tN;srcStu._mismatch=false;
+        saveAll();renderAll();toast(`${srcStu.이름} → ${tRid} 삽입 (뒤 학생 밀림)`,'ok');
+      }
+    } else {
+      doSwap(dragSrc.roomId,dragSrc.cellN,tRid,tN);
+    }
   }else{
     const stu=S.students.find(s=>s._i===dragSrc.stuIdx);if(!stu) return;
-    saveUndo(); // ← undo 저장
+    saveUndo();
     const disp=S.students.find(s=>s.고사장===tRid&&+s.자리===tN);
     if(disp){disp.고사장='';disp.자리=0;}
     stu.고사장=tRid;stu.자리=tN;stu._mismatch=false;
@@ -1487,8 +1516,24 @@ function execSaveSnap(name){
   if(document.getElementById('settings-modal').classList.contains('on'))renderSnapList();
 }
 function loadSnap(id){
-  if(!confirm('현재 배치를 덮어씁니다. 계속하시겠습니까?'))return;
   const sn=S.snapshots.find(s=>s.id===id);if(!sn)return;
+  // 현재 배치 먼저 저장할지 물어보기
+  const hasStu=S.students.length>0;
+  if(hasStu){
+    const choice=confirm(
+      `"${sn.name}" 배치를 불러옵니다.\n\n현재 배치를 저장 후 불러오시겠습니까?\n\n[확인] → 현재 배치 저장 후 불러오기\n[취소] → 저장 없이 바로 불러오기`
+    );
+    if(choice){
+      // 현재 상태를 먼저 저장 모달로
+      closeModal('settings-modal');
+      doSaveSnap();
+      // 저장 완료 후 불러오기는 사용자가 직접 다시 눌러야 함 — 안내
+      toast('저장 후 다시 [불러오기]를 눌러주세요 💾','');
+      return;
+    }
+    // 취소 = 저장 없이 바로 덮어쓰기
+    if(!confirm(`저장 없이 "${sn.name}"으로 덮어씁니다.\n현재 배치는 사라집니다. 계속하시겠습니까?`)) return;
+  }
   S.rooms=sn.rooms.map(migrateRoom);S.students=JSON.parse(JSON.stringify(sn.students));
   S.active=S.rooms[0]?.id||null;saveAll();renderAll();renderSnapList();toast(`"${sn.name}" 불러오기 완료`,'ok');
 }
