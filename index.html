@@ -91,7 +91,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
   display:flex;flex-direction:column;gap:1px;user-select:none}
 .sc:hover{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-lt)}
 .sc:active{transform:scale(.97)}
-.sc.void{width:8px;min-height:72px;border:none!important;background:transparent;padding:0;pointer-events:none;border-radius:0}
+.sc.void{width:28px;min-height:72px;border:none!important;background:transparent;padding:0;pointer-events:none;border-radius:0}
 .sc.blocked{background:#f8f8f8;border:1.5px solid var(--sl300);cursor:not-allowed;width:82px;min-height:72px}
 .sc.blocked:hover{border-color:var(--sl300)!important;box-shadow:none!important}
 .sc.male{background:var(--m-bg);border-color:var(--m-bd)}
@@ -247,9 +247,12 @@ input,select,textarea{font-family:inherit;cursor:auto}
   .card{border:none!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important}
   .grid-wrap{padding:2px 0 0!important;overflow:visible!important}
   .sgrid{gap:3px!important}
-  .sc{min-height:54px!important;width:82px!important;break-inside:avoid}
-  .sc.void{width:8px!important;min-height:54px!important}
-  .sc.blocked{width:82px!important;min-height:54px!important}
+  /* 일반/blocked 셀: 명시적 크기 지정 안 하고 grid column에 맞춤 */
+  .sc{min-height:54px!important;width:100%!important;break-inside:avoid}
+  /* void: 투명하게, 폭은 grid column(=void 열 폭)에 맞게 100% */
+  .sc.void{width:100%!important;min-height:54px!important;background:transparent!important;border:none!important}
+  /* blocked: grid column 꽉 채움 */
+  .sc.blocked{width:100%!important;min-height:54px!important}
   .s-name{font-size:11px!important}
   .s-hak{font-size:9px!important}
   .sn{font-size:9px!important}
@@ -724,7 +727,7 @@ function renum(cells){
 function getColTemplate(room,isProctor,seatW){
   const colEmpty=Array(room.cols).fill(true);
   room.cells.forEach(cell=>{if(cell.state!=='void') colEmpty[cell.c]=false;});
-  let cols=colEmpty.map(e=>e?'8px':`${seatW}px`);
+  let cols=colEmpty.map(e=>e?'28px':`${seatW}px`);
   if(isProctor) cols=[...cols].reverse();
   return cols.join(' ');
 }
@@ -1600,7 +1603,7 @@ function printAll(mode,maskNames=false){
     const cells=isStudent?sorted:[...sorted].reverse();
     const colEmpty=Array(room.cols).fill(true);
     room.cells.forEach(cell=>{if(cell.state!=='void') colEmpty[cell.c]=false;});
-    let colArr=colEmpty.map(e=>e?'8px':`${seatW}px`);
+    let colArr=colEmpty.map(e=>e?'28px':`${seatW}px`);
     if(!isStudent) colArr=[...colArr].reverse();
     const colTpl=colArr.join(' ');
     const classMap={},classCnt={};
@@ -1608,7 +1611,7 @@ function printAll(mode,maskNames=false){
     const classEntries=Object.entries(classMap).sort((a,b)=>a[0].localeCompare(b[0]));
     let cardsHTML='';
     cells.forEach(cell=>{
-      if(cell.state==='void'){cardsHTML+=`<div style="width:8px"></div>`;return;}
+      if(cell.state==='void'){cardsHTML+=`<div style="width:28px"></div>`;return;}
       if(cell.state==='blocked'){
         cardsHTML+=`<div style="width:${seatW}px;min-height:60px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fafafa;position:relative;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94a3b8">
           <span style="position:absolute;top:3px;right:4px;font-size:9px;font-weight:700;color:#94a3b8">${cell.dn}</span>미사용</div>`;return;
