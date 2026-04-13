@@ -1479,6 +1479,7 @@ function renderSnapList(){
         <div style="flex:1"><div class="li-name">${sn.name}</div>
           <div class="li-sub">${sn.date} · 학생 ${sn.students.length}명 · 강의실 ${sn.rooms.length}개</div></div>
         <button class="btn btn-sec btn-sm" onclick="loadSnap('${sn.id}')">불러오기</button>
+        <button class="btn btn-green btn-sm" onclick="downloadSnapExcel('${sn.id}')">⬇ 다운로드</button>
         <button class="btn btn-danger btn-xs" onclick="removeSnap('${sn.id}')">삭제</button>
       </div>`).join('')
     :'<div class="empty-state">저장된 배치 없음</div>';
@@ -1568,6 +1569,154 @@ function _execLoadSnap(id){
   toast(`"${sn.name}" 불러오기 완료`,'ok');
 }
 function removeSnap(id){S.snapshots=S.snapshots.filter(s=>s.id!==id);saveAll();renderSnapList();}
+
+function downloadSnapExcel(id){
+  const sn=S.snapshots.find(s=>s.id===id);
+  if(!sn){toast('저장 데이터 없음','err');return;}
+  const wb=XLSX.utils.book_new();
+
+  /* ── 1. 명단 시트 (업로드 양식과 동일) ── */
+  const rosterHdrs=['반','성별','이름','학번','수학선택','탐구','반코드','고사장','자리'];
+  const rosterRows=sn.students.map(s=>{
+    const room=sn.rooms.find(r=>r.id===s.고사장);
+    const cell=room?.cells.find(c=>c.n===+s.자리);
+    return[s.반||'',s.성별||'',s.이름||'',s.학번||'',
+      s.수학선택||'',s.탐구||'',s.반코드||'',
+      s.고사장||'',cell?cell.n:(s.자리||'')];
+  });
+  const wsRoster=XLSX.utils.aoa_to_sheet([rosterHdrs,...rosterRows]);
+  wsRoster['!cols']=rosterHdrs.map((_,i)=>({wch:i===2||i===7?14:10}));
+  XLSX.utils.book_append_sheet(wb,wsRoster,'명단');
+
+  /* ── 2. 통계 시트 ── */
+  const stus=sn.students,rooms=sn.rooms;
+  const total=stus.length;
+  const mCnt=stus.filter(s=>s.성별==='남').length;
+  const fCnt=stus.filter(s=>s.성별==='여').length;
+  const sat=stus.filter(s=>(s.탐구||'').includes('사탐')).length;
+  const gwt=stus.filter(s=>(s.탐구||'').includes('과탐')).length;
+  const sag=stus.filter(s=>(s.탐구||'').includes('사과')).length;
+  const mit=stus.filter(s=>(s.수학선택||'').includes('미적분')).length;
+  const pbs=stus.filter(s=>(s.수학선택||'').includes('확률')).length;
+  const geo=stus.filter(s=>(s.수학선택||'').includes('기하')).length;
+  const classCnt={};
+  stus.forEach(s=>{if(s.반)classCnt[s.반]=(classCnt[s.반]||0)+1;});
+  const classEntries=Object.entries(classCnt).sort((a,b)=>a[0].localeCompare(b[0]));
+  const roomStats=rooms.map(r=>{
+    const rs=stus.filter(s=>s.고사장===r.id);
+    const act=r.cells.filter(c=>c.state==='active').length;
+    return{name:r.id,exam:r.examType||'',total:rs.length,seats:act,
+      m:rs.filter(s=>s.성별==='남').length,f:rs.filter(s=>s.성별==='여').length,
+      sat:rs.filter(s=>(s.탐구||'').includes('사탐')).length,
+      gwt:rs.filter(s=>(s.탐구||'').includes('과탐')).length,
+      sag:rs.filter(s=>(s.탐구||'').includes('사과')).length,
+      mit:rs.filter(s=>(s.수학선택||'').includes('미적분')).length,
+      pbs:rs.filter(s=>(s.수학선택||'').includes('확률')).length,
+      geo:rs.filter(s=>(s.수학선택||'').includes('기하')).length};
+  }).filter(x=>x.total>0||x.seats>0);
+
+  const statsData=[
+    [`${sn.name} 통계`],[`저장일: ${sn.date}`],[],
+    ['■ 전체 현황'],
+    ['전체 인원','남','여','사탐','과탐','사과','미적분','확률과통계','기하'],
+    [total,mCnt,fCnt,sat,gwt,sag,mit,pbs,geo],[],
+    ['■ 반별 인원'],
+    ['반','인원'],
+    ...classEntries.map(([b,c])=>[b,c]),[],
+    ['■ 강의실별 현황'],
+    ['강의실','모의고사','배정','좌석수','남','여','사탐','과탐','사과','미적분','확률과통계','기하'],
+    ...roomStats.map(r=>[r.name,r.exam,r.total,r.seats,r.m,r.f,r.sat,r.gwt,r.sag,r.mit,r.pbs,r.geo]),
+    ['합계','',total,'',mCnt,fCnt,sat,gwt,sag,mit,pbs,geo],
+  ];
+  const wsStat=XLSX.utils.aoa_to_sheet(statsData);
+  wsStat['!cols']=[{wch:16},{wch:20},{wch:8},{wch:8},{wch:6},{wch:6},{wch:8},{wch:8},{wch:8},{wch:10},{wch:12},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,wsStat,'통계');
+
+  const fileName=`${sn.name}_${sn.date.replace(/\./g,'')}.xlsx`;
+  XLSX.writeFile(wb,fileName);
+  toast(`"${fileName}" 다운로드 완료`,'ok');
+}
+  const sn=S.snapshots.find(s=>s.id===id);
+  if(!sn){toast('저장 데이터 없음','err');return;}
+
+  const wb=XLSX.utils.book_new();
+
+  /* ── 1. 명단 시트 ── */
+  const rosterHdrs=['반','성별','이름','학번','수학선택','탐구','반코드','고사장','자리'];
+  const rosterRows=sn.students.map(s=>{
+    // 자리(n) → 표시번호(dn) 변환
+    const room=sn.rooms.find(r=>r.id===s.고사장);
+    const cell=room?.cells.find(c=>c.n===+s.자리);
+    return[
+      s.반||'', s.성별||'', s.이름||'', s.학번||'',
+      s.수학선택||'', s.탐구||'', s.반코드||'',
+      s.고사장||'', cell?cell.n:(s.자리||'')
+    ];
+  });
+  const wsRoster=XLSX.utils.aoa_to_sheet([rosterHdrs,...rosterRows]);
+  wsRoster['!cols']=rosterHdrs.map((h,i)=>({wch:i===2||i===7?14:10}));
+  XLSX.utils.book_append_sheet(wb,wsRoster,'명단');
+
+  /* ── 2. 통계 시트 ── */
+  const stus=sn.students;
+  const rooms=sn.rooms;
+
+  // 전체 집계
+  const total=stus.length;
+  const mCnt=stus.filter(s=>s.성별==='남').length;
+  const fCnt=stus.filter(s=>s.성별==='여').length;
+  const sat=stus.filter(s=>(s.탐구||'').includes('사탐')).length;
+  const gwt=stus.filter(s=>(s.탐구||'').includes('과탐')).length;
+  const sag=stus.filter(s=>(s.탐구||'').includes('사과')).length;
+  const mit=stus.filter(s=>(s.수학선택||'').includes('미적분')).length;
+  const pbs=stus.filter(s=>(s.수학선택||'').includes('확률')).length;
+  const geo=stus.filter(s=>(s.수학선택||'').includes('기하')).length;
+
+  // 반별 집계
+  const classCnt={};
+  stus.forEach(s=>{if(s.반)classCnt[s.반]=(classCnt[s.반]||0)+1;});
+  const classEntries=Object.entries(classCnt).sort((a,b)=>a[0].localeCompare(b[0]));
+
+  // 강의실별 집계
+  const roomStats=rooms.map(r=>{
+    const rs=stus.filter(s=>s.고사장===r.id);
+    const act=r.cells.filter(c=>c.state==='active').length;
+    return{
+      name:r.id, exam:r.examType||'', total:rs.length, seats:act,
+      m:rs.filter(s=>s.성별==='남').length, f:rs.filter(s=>s.성별==='여').length,
+      sat:rs.filter(s=>(s.탐구||'').includes('사탐')).length,
+      gwt:rs.filter(s=>(s.탐구||'').includes('과탐')).length,
+      sag:rs.filter(s=>(s.탐구||'').includes('사과')).length,
+      mit:rs.filter(s=>(s.수학선택||'').includes('미적분')).length,
+      pbs:rs.filter(s=>(s.수학선택||'').includes('확률')).length,
+      geo:rs.filter(s=>(s.수학선택||'').includes('기하')).length,
+    };
+  }).filter(x=>x.total>0||x.seats>0);
+
+  const statsData=[
+    [`${sn.name} 통계`],[],
+    ['■ 전체 현황'],
+    ['전체 인원','남','여','사탐','과탐','사과','미적분','확률과통계','기하'],
+    [total,mCnt,fCnt,sat,gwt,sag,mit,pbs,geo],
+    [],
+    ['■ 반별 인원'],
+    ['반','인원'],
+    ...classEntries.map(([b,c])=>[b,c]),
+    [],
+    ['■ 강의실별 현황'],
+    ['강의실','모의고사','배정','좌석수','남','여','사탐','과탐','사과','미적분','확률과통계','기하'],
+    ...roomStats.map(r=>[r.name,r.exam,r.total,r.seats,r.m,r.f,r.sat,r.gwt,r.sag,r.mit,r.pbs,r.geo]),
+    ['합계','',total,'',mCnt,fCnt,sat,gwt,sag,mit,pbs,geo],
+  ];
+
+  const wsStat=XLSX.utils.aoa_to_sheet(statsData);
+  wsStat['!cols']=[{wch:16},{wch:20},{wch:8},{wch:8},{wch:6},{wch:6},{wch:8},{wch:8},{wch:8},{wch:10},{wch:12},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,wsStat,'통계');
+
+  const fileName=`${sn.name}_좌석배치_${sn.date.replace(/\./g,'')}.xlsx`;
+  XLSX.writeFile(wb,fileName);
+  toast(`"${fileName}" 다운로드 완료`,'ok');
+}
 
 /* ═══ VIEW & PRINT ═══ */
 function setView(v){
