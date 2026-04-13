@@ -1676,7 +1676,7 @@ function executePrint(maskNames){
   const st=document.createElement('style');st.id=styleId;
 
   const commonPrint=`
-    @page{size:A4 portrait;margin:8mm}
+    @page{size:A4 portrait;margin:5mm}
     #printArea{margin:0 auto;width:fit-content}
     .sgrid{margin:0 auto}
   `;
@@ -1692,7 +1692,7 @@ function executePrint(maskNames){
   }
   document.head.appendChild(st);
 
-  // grid-template-columns를 72px 기준으로 재설정
+  // grid-template-columns 72px 기준 재설정
   const room=getRoom(S.active);
   let _origColTpl='';
   if(room){
@@ -1707,26 +1707,31 @@ function executePrint(maskNames){
     }
   }
 
-  // A4 portrait 인쇄 가능 영역: margin 8mm×2 제외
-  // 210mm - 16mm = 194mm ≈ 734px (96dpi 기준)
-  // 297mm - 16mm = 281mm ≈ 1063px
-  const A4W=734, A4H=1063;
   const area=document.getElementById('printArea');
   if(area) area.style.zoom='';
 
+  // [data-noprint] 요소들을 측정 전에 숨겨서 정확한 인쇄 높이 계산
+  const noPrintEls=area?[...area.querySelectorAll('[data-noprint]')]:[];
+  noPrintEls.forEach(el=>el.style.display='none');
+
   requestAnimationFrame(()=>{
+    // A4 portrait 인쇄 가능 영역 (margin 5mm×2)
+    // 210mm - 10mm = 200mm ≈ 756px / 297mm - 10mm = 287mm ≈ 1085px
+    const A4W=756, A4H=1085;
+
     if(area){
       const grid=area.querySelector('.sgrid');
-      // 가로: 그리드 실제 너비 기준
       const rawW=grid ? grid.scrollWidth : area.scrollWidth;
-      // 세로: printArea 전체 높이 기준 (헤더+그리드+칠판 포함)
-      const rawH=area.scrollHeight;
+      const rawH=area.scrollHeight; // noprint 숨긴 상태에서 측정
       const sx=rawW>A4W ? A4W/rawW : 1;
       const sy=rawH>A4H ? A4H/rawH : 1;
-      // 가로·세로 중 더 작은 비율로 맞춰 한 장에 전부 담기
       const sc=Math.min(sx,sy);
       if(sc<0.999) area.style.zoom=sc.toFixed(4);
     }
+
+    // noprint 복원
+    noPrintEls.forEach(el=>el.style.display='');
+
     setTimeout(()=>{
       window.print();
       setTimeout(()=>{
