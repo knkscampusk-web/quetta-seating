@@ -1519,11 +1519,12 @@ function doSaveSnap(){
   }
   openModal('snap-save-modal');
 }
+let _pendingLoadSnapId=null; // 저장 후 자동으로 불러올 snap id
+
 function execSaveSnap(name){
   if(!name||!name.trim()){toast('이름을 입력하세요','err');return;}
   name=name.trim();
   closeModal('snap-save-modal');
-  // 같은 이름 있으면 덮어쓰기
   const existIdx=S.snapshots.findIndex(s=>s.name===name);
   const snap={id:existIdx>=0?S.snapshots[existIdx].id:Date.now().toString(),
     name,date:new Date().toLocaleDateString('ko-KR'),
@@ -1533,28 +1534,38 @@ function execSaveSnap(name){
   else S.snapshots.push(snap);
   saveAll();toast(`"${name}" 저장됨`,'ok');
   if(document.getElementById('settings-modal').classList.contains('on'))renderSnapList();
+
+  // 저장 후 자동 불러오기 (loadSnap에서 설정된 경우)
+  if(_pendingLoadSnapId){
+    const pendingId=_pendingLoadSnapId;
+    _pendingLoadSnapId=null;
+    setTimeout(()=>_execLoadSnap(pendingId),300);
+  }
 }
+
 function loadSnap(id){
   const sn=S.snapshots.find(s=>s.id===id);if(!sn)return;
-  // 현재 배치 먼저 저장할지 물어보기
   const hasStu=S.students.length>0;
   if(hasStu){
     const choice=confirm(
-      `"${sn.name}" 배치를 불러옵니다.\n\n현재 배치를 저장 후 불러오시겠습니까?\n\n[확인] → 현재 배치 저장 후 불러오기\n[취소] → 저장 없이 바로 불러오기`
+      `"${sn.name}" 배치를 불러옵니다.\n\n현재 배치를 저장 후 불러오시겠습니까?\n\n[확인] → 현재 배치 저장 후 자동 불러오기\n[취소] → 저장 없이 바로 불러오기`
     );
     if(choice){
-      // 현재 상태를 먼저 저장 모달로
-      closeModal('settings-modal');
+      _pendingLoadSnapId=id; // 저장 완료 후 자동으로 불러올 id 예약
       doSaveSnap();
-      // 저장 완료 후 불러오기는 사용자가 직접 다시 눌러야 함 — 안내
-      toast('저장 후 다시 [불러오기]를 눌러주세요 💾','');
       return;
     }
-    // 취소 = 저장 없이 바로 덮어쓰기
     if(!confirm(`저장 없이 "${sn.name}"으로 덮어씁니다.\n현재 배치는 사라집니다. 계속하시겠습니까?`)) return;
   }
+  _execLoadSnap(id);
+}
+
+function _execLoadSnap(id){
+  const sn=S.snapshots.find(s=>s.id===id);if(!sn)return;
   S.rooms=sn.rooms.map(migrateRoom);S.students=JSON.parse(JSON.stringify(sn.students));
-  S.active=S.rooms[0]?.id||null;saveAll();renderAll();renderSnapList();toast(`"${sn.name}" 불러오기 완료`,'ok');
+  S.active=S.rooms[0]?.id||null;saveAll();renderAll();
+  closeModal('settings-modal');
+  toast(`"${sn.name}" 불러오기 완료`,'ok');
 }
 function removeSnap(id){S.snapshots=S.snapshots.filter(s=>s.id!==id);saveAll();renderSnapList();}
 
