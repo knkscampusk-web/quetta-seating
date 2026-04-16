@@ -1759,26 +1759,29 @@ function executePrint(maskNames){
   const area=document.getElementById('printArea');
   if(area) area.style.zoom='';
 
-  // [data-noprint] 요소들을 측정 전에 숨겨서 정확한 인쇄 높이 계산
+  // [data-noprint] 임시 숨김
   const noPrintEls=area?[...area.querySelectorAll('[data-noprint]')]:[];
   noPrintEls.forEach(el=>el.style.display='none');
 
+  // 인쇄 시 셀 높이(46px)로 임시 변경 → 화면(72px)과 인쇄(46px) 차이 보정
+  const scEls=area?[...area.querySelectorAll('.sc')]:[];
+  scEls.forEach(el=>{ el.style.minHeight='46px'; });
+
   requestAnimationFrame(()=>{
-    // A4 portrait 인쇄 가능 영역 (margin 5mm×2)
-    // 210mm - 10mm = 200mm ≈ 756px / 297mm - 10mm = 287mm ≈ 1085px
     const A4W=756, A4H=1085;
 
     if(area){
       const grid=area.querySelector('.sgrid');
       const rawW=grid ? grid.scrollWidth : area.scrollWidth;
-      const rawH=area.scrollHeight; // noprint 숨긴 상태에서 측정
+      const rawH=area.scrollHeight;
       const sx=rawW>A4W ? A4W/rawW : 1;
       const sy=rawH>A4H ? A4H/rawH : 1;
-      const sc=Math.min(sx,sy)*0.97; // 3% 안전 여유
+      const sc=Math.min(sx,sy)*0.97;
       if(sc<0.999) area.style.zoom=sc.toFixed(4);
     }
 
-    // noprint 복원
+    // 임시 변경 복원
+    scEls.forEach(el=>{ el.style.minHeight=''; });
     noPrintEls.forEach(el=>el.style.display='');
 
     setTimeout(()=>{
@@ -1814,20 +1817,28 @@ function printAll(mode,maskNames=false){
     cells.forEach(cell=>{
       if(cell.state==='void'){cardsHTML+=`<div style="width:28px"></div>`;return;}
       if(cell.state==='blocked'){
-        cardsHTML+=`<div style="width:${seatW}px;min-height:60px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fafafa;position:relative;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94a3b8">
-          <span style="position:absolute;top:3px;right:4px;font-size:9px;font-weight:700;color:#94a3b8">${cell.dn}</span>미사용</div>`;return;
+        cardsHTML+=`<div style="width:${seatW}px;min-height:56px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fafafa;display:flex;flex-direction:column;gap:1px;padding:4px 5px 5px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span></span>
+            <span style="background:#94a3b8;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px">${cell.dn}</span>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94a3b8">미사용</div>
+        </div>`;return;
       }
       const stu=seatStu(room.id,cell.n);
       const bg=stu?(stu.성별==='남'?'#eff6ff':stu.성별==='여'?'#fdf4ff':'#f8fafc'):'#f8fafc';
       const bd=stu?(stu.성별==='남'?'#93c5fd':stu.성별==='여'?'#d8b4fe':'#e2e8f0'):'#e2e8f0';
-      const snBg=stu?(stu.성별==='남'?'#bfdbfe':stu.성별==='여'?'#e9d5ff':'#e2e8f0'):'#e2e8f0';
-      const snColor=stu?(stu.성별==='남'?'#1e40af':stu.성별==='여'?'#6b21a8':'#475569'):'#94a3b8';
-      let inner=`<span style="position:absolute;top:3px;right:4px;font-size:9px;font-weight:700;background:${snBg};color:${snColor};padding:1px 4px;border-radius:3px">${cell.dn}</span>`;
+      // 좌석번호 배지: 항상 검정 바탕 흰 글씨
+      const snBadge=`<span style="background:#1e293b;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px">${cell.dn}</span>`;
+      // 반코드 + 좌석번호 같은 행
+      let inner=`<div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:10px;font-weight:800;color:#2563eb;line-height:1.2">${stu?stu.반코드||'':''}</span>
+        ${snBadge}
+      </div>`;
       if(stu){
         const nameDisp=(isStudent&&maskNames)?maskName(stu.이름):stu.이름;
-        inner+=`<div style="font-size:8px;font-weight:800;color:#2563eb;margin-top:14px;line-height:1.2">${stu.반코드||''}</div>
-                <div style="font-size:9px;font-weight:600;color:#475569;line-height:1.3">${stu.학번}</div>
-                <div style="font-size:12px;font-weight:800;color:#0b1120;line-height:1.3;margin-top:1px">${nameDisp}</div>`;
+        inner+=`<div style="font-size:10px;font-weight:700;color:#475569;line-height:1.4;margin-top:2px">${stu.학번}</div>
+                <div style="font-size:14px;font-weight:800;color:#0b1120;line-height:1.3;margin-top:2px">${nameDisp}</div>`;
         if(!isStudent){
           const gb=stu.성별==='남'?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;background:#dbeafe;color:#1e40af">남</span>`
                    :stu.성별==='여'?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;background:#fce7f3;color:#9d174d">여</span>`:'';
@@ -1835,8 +1846,8 @@ function printAll(mode,maskNames=false){
           const tb=t?`<span style="font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;${tc}">${t}</span>`:'';
           inner+=`<div style="display:flex;gap:2px;flex-wrap:wrap;margin-top:2px">${gb}${tb}</div>`;
         }
-      }else inner+=`<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:12px;margin-top:10px">·</div>`;
-      cardsHTML+=`<div style="border-radius:6px;border:1.5px solid ${bd};background:${bg};padding:4px 5px 5px;min-height:60px;width:${seatW}px;position:relative;display:flex;flex-direction:column;gap:1px">${inner}</div>`;
+      }else inner+=`<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:12px;margin-top:6px">·</div>`;
+      cardsHTML+=`<div style="border-radius:6px;border:1.5px solid ${bd};background:${bg};padding:4px 5px 5px;min-height:56px;width:${seatW}px;display:flex;flex-direction:column;gap:1px">${inner}</div>`;
     });
     const examObj=examByName(room.examType);
     const examDate=examObj?.date?` (시행일:${examObj.date})`:'';
