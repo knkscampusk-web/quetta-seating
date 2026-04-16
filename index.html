@@ -1857,7 +1857,7 @@ function printAll(mode,maskNames=false){
     const noticeHtml=room.notice?`<div style="font-size:10px;font-weight:600;color:#78350f;background:#fefce8;border-left:3px solid #fde047;padding:3px 7px;margin-bottom:4px;border-radius:2px">${room.notice}</div>`:'';
     const boardTop=isStudent?`<div style="margin:4px 0;background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7)">칠 판</div>`:'';
     const boardBottom=!isStudent?`<div style="margin:4px 0;background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7)">칠 판</div>`:'';
-    return`<div style="page-break-after:always;padding:0">
+    return`<div class="room-page" style="page-break-after:always;padding:0">
       <div style="border-bottom:2px solid #0b1120;padding-bottom:6px;margin-bottom:6px">
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
           <span style="font-size:20px;font-weight:900">${room.name}</span>
@@ -1868,7 +1868,7 @@ function printAll(mode,maskNames=false){
       </div>
       ${isStudent?infoHtml:''}${!isStudent?ccHtml:''}${!isStudent?infoHtml:''}
       ${boardTop}
-      <div style="display:grid;grid-template-columns:${colTpl};gap:3px;width:fit-content">${cardsHTML}</div>
+      <div class="room-grid" style="display:grid;grid-template-columns:${colTpl};gap:2px;width:fit-content">${cardsHTML}</div>
       ${boardBottom}
     </div>`;
   }).filter(Boolean).join('');
@@ -1878,10 +1878,35 @@ function printAll(mode,maskNames=false){
     <meta charset="UTF-8">
     <title>${isStudent?'학생용':'시감자용'} 전체 배치표</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
-    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Noto Sans KR',sans-serif;background:white;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    @media print{@page{size:A4 portrait;margin:6mm}body{margin:0}div[style*="page-break-after"]{page-break-after:always}div[style*="page-break-after"]:last-child{page-break-after:avoid}}</style>
-  </head><body>${pages}</body></html>`);
-  w.document.close();w.onload=()=>{w.focus();w.print();};
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Noto Sans KR',sans-serif;background:white;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      @media print{
+        @page{size:A4 portrait;margin:5mm}
+        body{margin:0}
+        .room-page{page-break-after:always}
+        .room-page:last-child{page-break-after:avoid}
+      }
+    </style>
+  </head><body>${pages}
+  <script>
+  // 각 강의실 페이지를 A4 한 장에 맞게 zoom 적용
+  window.addEventListener('load', function(){
+    const A4W=756, A4H=1085; // margin 5mm×2 기준
+    document.querySelectorAll('.room-page').forEach(function(page){
+      const grid=page.querySelector('.room-grid');
+      const rawW=grid?grid.scrollWidth:page.scrollWidth;
+      const rawH=page.scrollHeight;
+      const sx=rawW>A4W?A4W/rawW:1;
+      const sy=rawH>A4H?A4H/rawH:1;
+      const sc=Math.min(sx,sy);
+      if(sc<0.999) page.style.zoom=sc.toFixed(4);
+    });
+    setTimeout(function(){window.print();},300);
+  });
+  \x3c/script>
+  </body></html>`);
+  w.document.close();
   toast(`${S.rooms.length}개 강의실 ${isStudent?'학생용':'시감자용'} 인쇄 준비됨`,'ok');
 }
 
