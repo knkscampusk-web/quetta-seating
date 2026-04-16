@@ -1775,7 +1775,7 @@ function executePrint(maskNames){
       const rawH=area.scrollHeight; // noprint 숨긴 상태에서 측정
       const sx=rawW>A4W ? A4W/rawW : 1;
       const sy=rawH>A4H ? A4H/rawH : 1;
-      const sc=Math.min(sx,sy);
+      const sc=Math.min(sx,sy)*0.97; // 3% 안전 여유
       if(sc<0.999) area.style.zoom=sc.toFixed(4);
     }
 
@@ -1899,7 +1899,7 @@ function printAll(mode,maskNames=false){
       const rawH=page.scrollHeight;
       const sx=rawW>A4W?A4W/rawW:1;
       const sy=rawH>A4H?A4H/rawH:1;
-      const sc=Math.min(sx,sy);
+      const sc=Math.min(sx,sy)*0.97; // 3% 안전 여유
       if(sc<0.999) page.style.zoom=sc.toFixed(4);
     });
     setTimeout(function(){window.print();},300);
