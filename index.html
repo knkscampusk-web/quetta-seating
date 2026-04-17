@@ -317,6 +317,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
   <div class="hdr-right">
     <span id="sync-stat" style="font-size:10px;font-weight:600;color:#86efac;opacity:.8"></span>
     <span id="user-info" style="font-size:11px;color:rgba(255,255,255,.5);display:none"></span>
+    <button id="logout-btn" onclick="firebase.auth().signOut()" style="display:none;background:rgba(255,255,255,.09);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.13);padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">로그아웃</button>
     <button class="btn btn-hdr btn-sm" onclick="openModal('search-modal')">🔍 학생 검색</button>
     <!-- 관리자 전용 버튼 -->
     <span id="admin-btns" style="display:none;gap:5px;align-items:center">
@@ -751,55 +752,51 @@ auth.onAuthStateChanged(async user=>{
   }
   _currentUser=user;
 
-  // Firestore에서 승인 여부 확인
-  const userRef=USERS.doc(user.uid);
-  const snap=await userRef.get();
+  // Firestore에서 승인 여부 확인 — 이메일 기준으로 조회
+  const userSnap=await USERS.where('email','==',user.email).get();
 
-  if(!snap.exists){
-    // 최초 접속 → 저장 + 잔디 알림
+  if(!userSnap.empty && userSnap.docs[0].data().approved){
+    userSnap.docs[0].ref.update({uid:user.uid,name:user.displayName||''});
+    showScreen(null);
+    const ui=document.getElementById('user-info');
+    if(ui){ui.textContent=user.displayName||user.email;ui.style.display='';}
+    const lb=document.getElementById('logout-btn');if(lb)lb.style.display='';
+    writeLog('접속', user.email);
+    load();
+    return;
+  }
+
+  // 미등록 또는 미승인 → 요청 저장 + 잔디 알림
+  const userRef=USERS.doc(user.uid);
+  const docSnap=await userRef.get();
+  if(!docSnap.exists){
     await userRef.set({
-      uid: user.uid,
-      name: user.displayName||'',
-      email: user.email||'',
-      approved: false,
-      requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      uid:user.uid,
+      name:user.displayName||'',
+      email:user.email||'',
+      approved:false,
+      requestedAt:firebase.firestore.FieldValue.serverTimestamp(),
     });
     sendJandi(
       '🔔 QUETTA 접속 승인 요청',
-      `이름: ${user.displayName||'(없음)'}\n이메일: ${user.email}\n시각: ${new Date().toLocaleString('ko-KR')}\n\n👉 Firebase Console에서 approved: true 로 변경해주세요`,
+      `이름: ${user.displayName||'(없음)'}\n이메일: ${user.email}\n시각: ${new Date().toLocaleString('ko-KR')}\n\n👉 설정 → 활동 로그 → 접속자 관리에서 승인해주세요`,
       '#f59e0b'
     );
-    document.getElementById('pending-msg').innerHTML=
-      `<b>${user.displayName||user.email}</b>님,<br>접속 요청이 관리자에게 전달되었습니다.`;
-    showScreen('pending-screen');
-    return;
   }
-
-  const userData=snap.data();
-  if(!userData.approved){
-    // 미승인
-    document.getElementById('pending-msg').innerHTML=
-      `<b>${user.displayName||user.email}</b>님,<br>아직 승인 대기 중입니다.`;
-    showScreen('pending-screen');
-    // 승인 여부 실시간 감지
-    userRef.onSnapshot(s=>{
-      if(s.data()?.approved){
-        showScreen(null);
-        const ui=document.getElementById('user-info');
-        if(ui){ui.textContent=user.displayName||user.email;ui.style.display='';}
-        writeLog('접속', user.email);
-        load();
-      }
-    });
-    return;
-  }
-
-  // 승인된 사용자 → 앱 실행
-  showScreen(null);
-  const ui=document.getElementById('user-info');
-  if(ui){ui.textContent=user.displayName||user.email;ui.style.display='';}
-  writeLog('접속', user.email);
-  load();
+  document.getElementById('pending-msg').innerHTML=
+    `<b>${user.displayName||user.email}</b>님,<br>접속 요청이 관리자에게 전달되었습니다.`;
+  showScreen('pending-screen');
+  // 승인 여부 실시간 감지
+  userRef.onSnapshot(s=>{
+    if(s.data()?.approved){
+      showScreen(null);
+      const ui=document.getElementById('user-info');
+      if(ui){ui.textContent=user.displayName||user.email;ui.style.display='';}
+      const lb=document.getElementById('logout-btn');if(lb)lb.style.display='';
+      writeLog('접속', user.email);
+      load();
+    }
+  });
 });
 
 /* ═══ STATE ═══ */
