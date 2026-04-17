@@ -779,7 +779,7 @@ auth.onAuthStateChanged(async user=>{
     });
     sendJandi(
       '🔔 QUETTA 접속 승인 요청',
-      `이름: ${user.displayName||'(없음)'}\n이메일: ${user.email}\n시각: ${new Date().toLocaleString('ko-KR')}\n\n👉 설정 → 활동 로그 → 접속자 관리에서 승인해주세요`,
+      `이름: ${user.displayName||'(없음)'}\n이메일: ${user.email}\n시각: ${new Date().toLocaleString('ko-KR')}\n\n👉 Firestore > 데이터베이스 > quetta_users 에서 approved: true로 변경해주세요`,
       '#f59e0b'
     );
   }
