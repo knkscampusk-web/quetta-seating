@@ -9,6 +9,7 @@
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <style>
 :root{
   --ink:#0b1120;--ink-lt:#1e293b;--blue:#2563eb;--blue-lt:#dbeafe;
@@ -273,6 +274,41 @@ input,select,textarea{font-family:inherit;cursor:auto}
 </head>
 <body>
 
+<!-- 로그인 화면 -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:#f1f5f9;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:40px 36px;width:380px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,.15);text-align:center">
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px">
+      <span style="background:#0891b2;color:#fff;font-size:12px;font-weight:900;padding:3px 10px;border-radius:5px;letter-spacing:.08em">QUETTA</span>
+      <span style="font-size:15px;font-weight:700;color:#0b1120">강남대성퀘타</span>
+    </div>
+    <div style="font-size:13px;color:#94a3b8;margin-bottom:28px">모의고사 좌석배치 관리 시스템</div>
+    <button id="google-login-btn" onclick="signInWithGoogle()"
+      style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;
+      display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:600;
+      cursor:pointer;color:#0b1120;font-family:inherit">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+      Google 계정으로 로그인
+    </button>
+    <div id="login-msg" style="margin-top:12px;font-size:12px;color:#94a3b8"></div>
+  </div>
+</div>
+
+<!-- 승인 대기 화면 -->
+<div id="pending-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:#f1f5f9;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:40px 36px;width:400px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,.15);text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">⏳</div>
+    <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:#0b1120">승인 대기 중</div>
+    <div id="pending-msg" style="font-size:13px;color:#64748b;line-height:1.7;margin-bottom:20px"></div>
+    <div style="padding:12px;background:#f8fafc;border-radius:8px;font-size:12px;color:#94a3b8">
+      관리자 승인 후 이 페이지를 새로고침하면 접속됩니다.
+    </div>
+    <button onclick="firebase.auth().signOut().then(()=>location.reload())"
+      style="margin-top:16px;padding:8px 20px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:13px;cursor:pointer;color:#64748b;font-family:inherit">
+      다른 계정으로 로그인
+    </button>
+  </div>
+</div>
+
 <div id="hdr">
   <div class="logo">
     <span class="logo-badge">QUETTA</span>
@@ -280,6 +316,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
   </div>
   <div class="hdr-right">
     <span id="sync-stat" style="font-size:10px;font-weight:600;color:#86efac;opacity:.8"></span>
+    <span id="user-info" style="font-size:11px;color:rgba(255,255,255,.5);display:none"></span>
     <button class="btn btn-hdr btn-sm" onclick="openModal('search-modal')">🔍 학생 검색</button>
     <!-- 관리자 전용 버튼 -->
     <span id="admin-btns" style="display:none;gap:5px;align-items:center">
@@ -365,6 +402,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
       <div class="mtab on" onclick="switchMTab(0)">🏛 강의실 관리</div>
       <div class="mtab" onclick="switchMTab(1)">📋 모의고사 목록</div>
       <div class="mtab" onclick="switchMTab(2)">💾 저장/불러오기</div>
+      <div class="mtab" onclick="switchMTab(3)">📋 활동 로그</div>
     </div>
     <div class="mtab-pane on" id="stab-0">
       <div style="background:var(--sl50);border:1px solid var(--sl200);border-radius:10px;padding:13px 14px;margin-bottom:14px">
@@ -396,6 +434,17 @@ input,select,textarea{font-family:inherit;cursor:auto}
         <button class="btn btn-pri btn-sm" onclick="doSaveSnap()">💾 현재 저장</button>
       </div>
       <div id="snap-list"></div>
+    </div>
+    <div class="mtab-pane" id="stab-3">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <span style="font-size:12px;color:var(--sl500)">최근 활동 기록입니다.</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sec btn-sm" onclick="renderLogList()">🔄 새로고침</button>
+          <button class="btn btn-sec btn-sm" onclick="renderUserList()">👥 접속자 관리</button>
+        </div>
+      </div>
+      <div id="user-list" style="display:none;margin-bottom:16px"></div>
+      <div id="log-list"><div class="empty-state">로그 불러오는 중...</div></div>
     </div>
   </div>
 </div>
@@ -631,7 +680,127 @@ const firebaseConfig={
 };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.firestore();
+const auth=firebase.auth();
 const DOC=db.collection('quetta').doc('state');
+const USERS=db.collection('quetta_users');
+const LOGS=db.collection('quetta_logs');
+const JANDI_WEBHOOK='https://wh.jandi.com/connect-api/webhook/30603710/691ee09838881bef2c5e7e9c189d39dd';
+
+let _currentUser=null; // 현재 로그인 사용자
+
+/* ═══ 잔디 알림 ═══ */
+async function sendJandi(title,body,color='#2BADA0'){
+  try{
+    await fetch(JANDI_WEBHOOK,{
+      method:'POST',
+      headers:{'Accept':'application/vnd.tosslab.jandi-v2+json','Content-Type':'application/json'},
+      body:JSON.stringify({
+        body:title,
+        connectColor:color,
+        connectInfo:[{title:'',description:body}]
+      })
+    });
+  }catch(e){console.log('잔디 알림 오류(무시):', e);}
+}
+
+/* ═══ 활동 로그 기록 ═══ */
+function writeLog(action, detail=''){
+  if(!_currentUser) return;
+  const now=new Date();
+  LOGS.add({
+    uid: _currentUser.uid,
+    name: _currentUser.displayName||'',
+    email: _currentUser.email||'',
+    action,
+    detail,
+    at: firebase.firestore.FieldValue.serverTimestamp(),
+    atStr: now.toLocaleString('ko-KR'),
+  }).catch(e=>console.log('로그 오류:', e));
+}
+
+/* ═══ 구글 로그인 ═══ */
+function signInWithGoogle(){
+  const provider=new firebase.auth.GoogleAuthProvider();
+  document.getElementById('login-msg').textContent='로그인 중...';
+  auth.signInWithPopup(provider).catch(e=>{
+    document.getElementById('login-msg').textContent='로그인 실패: '+e.message;
+  });
+}
+
+function showScreen(name){
+  ['login-screen','pending-screen'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=(id===name)?'flex':'none';
+  });
+  // 앱 UI
+  const appEls=['hdr','tabs','bar','main'];
+  appEls.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=(name===null)?'':'none';
+  });
+  const swapBar=document.getElementById('swap-bar');
+  if(swapBar) swapBar.style.display=(name===null&&S.swap)?'flex':'none';
+}
+
+/* ═══ 인증 상태 감지 ═══ */
+auth.onAuthStateChanged(async user=>{
+  if(!user){
+    _currentUser=null;
+    showScreen('login-screen');
+    return;
+  }
+  _currentUser=user;
+
+  // Firestore에서 승인 여부 확인
+  const userRef=USERS.doc(user.uid);
+  const snap=await userRef.get();
+
+  if(!snap.exists){
+    // 최초 접속 → 저장 + 잔디 알림
+    await userRef.set({
+      uid: user.uid,
+      name: user.displayName||'',
+      email: user.email||'',
+      approved: false,
+      requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    sendJandi(
+      '🔔 QUETTA 접속 승인 요청',
+      `이름: ${user.displayName||'(없음)'}\n이메일: ${user.email}\n시각: ${new Date().toLocaleString('ko-KR')}\n\n👉 Firebase Console에서 approved: true 로 변경해주세요`,
+      '#f59e0b'
+    );
+    document.getElementById('pending-msg').innerHTML=
+      `<b>${user.displayName||user.email}</b>님,<br>접속 요청이 관리자에게 전달되었습니다.`;
+    showScreen('pending-screen');
+    return;
+  }
+
+  const userData=snap.data();
+  if(!userData.approved){
+    // 미승인
+    document.getElementById('pending-msg').innerHTML=
+      `<b>${user.displayName||user.email}</b>님,<br>아직 승인 대기 중입니다.`;
+    showScreen('pending-screen');
+    // 승인 여부 실시간 감지
+    userRef.onSnapshot(s=>{
+      if(s.data()?.approved){
+        showScreen(null);
+        const ui=document.getElementById('user-info');
+        if(ui){ui.textContent=user.displayName||user.email;ui.style.display='';}
+        writeLog('접속', user.email);
+        load();
+      }
+    });
+    return;
+  }
+
+  // 승인된 사용자 → 앱 실행
+  showScreen(null);
+  const ui=document.getElementById('user-info');
+  if(ui){ui.textContent=user.displayName||user.email;ui.style.display='';}
+  writeLog('접속', user.email);
+  load();
+});
 
 /* ═══ STATE ═══ */
 const DEF_ROOMS=['L01호','101호','102호','201호','202호','203호','204호','301호','302호','303호','304호'];
@@ -736,11 +905,15 @@ function load(){
       if(d.rooms?.length){
         S.rooms=d.rooms.map(migrateRoom);
       } else {
-        // Firebase에 데이터는 있지만 rooms가 비어있음 → localStorage 복구 시도
+        // Firebase에 rooms가 비어있어도 절대 자동으로 덮어쓰지 않음
+        // localStorage에서 복구 시도만 하고, 없으면 그냥 둠
         const migrated=migrateFromLocalStorage();
-        if(!migrated) S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));
+        if(migrated){
+          pushToFirebase(); // 복구된 경우만 저장
+        }
+        // 복구 실패해도 기본값으로 덮어쓰지 않음
+        if(!S.rooms.length) S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));
         S.active=S.rooms[0]?.id||null;
-        saveAll(); // 복구한 데이터를 Firebase에 다시 저장
         renderAll();return;
       }
       if(d.students?.length)  S.students=d.students;
@@ -750,7 +923,7 @@ function load(){
       else if(d.snapshots)    S.snapshots=[];
       if(!S.active||!S.rooms.find(r=>r.id===S.active)) S.active=S.rooms[0]?.id||null;
     } else {
-      // Firebase에 문서 자체가 없음
+      // Firebase에 문서 자체가 없는 경우만 초기화 허용
       const migrated=migrateFromLocalStorage();
       if(!migrated){S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));S.active=S.rooms[0]?.id||null;}
       saveAll();
@@ -962,6 +1135,7 @@ function handleUpload(e){
       }
       const mc=parsed.filter(s=>s._mismatch).length;
       saveAll();renderAll();
+      writeLog('명단 업로드', `${_uploadRoomId} · ${parsed.length}명${mc?` (불일치 ${mc}명)`:''}`);
       uplMsg(`✅ ${parsed.length}명 업로드 완료${mc?` (미배정 ${mc}명)`:''}`,'#14532d');
       toast(`${parsed.length}명 업로드 완료`+(mc?` · 미배정 ${mc}명`:''),'ok');
     }catch(err){uplMsg(`❌ 오류: ${err.message}`,'#7f1d1d');}
@@ -1485,29 +1659,32 @@ function forceMoveStu(){
     toast(`${stu.이름} → ${tRid} ${tDn}번 (이후 학생 당기기)`,'ok');
   }
   saveAll();renderAll();closeModal('edit-stu-modal');
+  writeLog('학생 이동', `${stu.이름}(${stu.학번}) → ${tRid} ${tDn}번 [${shiftMode}]`);
 }
 function deleteStu(mode){
   const stu=S.students.find(s=>s._i===_editStuIdx);if(!stu) return;
   const roomId=stu.고사장,stuN=+stu.자리;
-  // stuN이 이미 n(업로드번호) — 직접 사용
-  saveUndo(); // ← undo 저장
+  saveUndo();
   if(mode==='pull'){
     stu.고사장='';stu.자리=0;
-    shiftBackFrom(roomId,stuN); // n(업로드순) 기준으로 당기기
+    shiftBackFrom(roomId,stuN);
     toast(`${stu.이름} 삭제 + 뒤 학생 당기기 완료`,'ok');
+    writeLog('학생 삭제', `${stu.이름}(${stu.학번}) ${roomId} [당기기]`);
   } else {
     stu.고사장='';stu.자리=0;
     toast(`${stu.이름} → 미배정 처리`,'ok');
+    writeLog('학생 삭제', `${stu.이름}(${stu.학번}) ${roomId} [자리 비움]`);
   }
   saveAll();renderAll();closeModal('edit-stu-modal');
 }
 function insertBeforeStu(){
   const stu=S.students.find(s=>s._i===_editStuIdx);if(!stu) return;
-  const stuN=+stu.자리; // n(업로드번호) 직접 사용
+  const stuN=+stu.자리;
   if(!stuN){toast('현재 좌석 정보 없음','err');return;}
-  saveUndo(); // ← undo 저장
-  shiftForwardFrom(stu.고사장,stuN); // n(업로드순) 기준으로 밀기
+  saveUndo();
+  shiftForwardFrom(stu.고사장,stuN);
   toast(`앞에 빈 자리 삽입 — 이 학생부터 뒤로 한 칸씩 밀림`,'ok');
+  writeLog('빈 자리 삽입', `${stu.이름}(${stu.학번}) 앞에 삽입`);
   saveAll();renderAll();closeModal('edit-stu-modal');
 }
 
@@ -1553,6 +1730,69 @@ function switchMTab(i){
   document.querySelectorAll('.mtab').forEach((t,j)=>t.classList.toggle('on',i===j));
   document.querySelectorAll('.mtab-pane').forEach((p,j)=>p.classList.toggle('on',i===j));
   renderSettingsContent();
+  if(i===3) renderLogList();
+}
+
+async function renderLogList(){
+  const el=document.getElementById('log-list');if(!el)return;
+  el.innerHTML='<div class="empty-state">로그 불러오는 중...</div>';
+  try{
+    const snap=await LOGS.orderBy('at','desc').limit(50).get();
+    if(snap.empty){el.innerHTML='<div class="empty-state">기록 없음</div>';return;}
+    el.innerHTML=snap.docs.map(d=>{
+      const r=d.data();
+      const time=r.atStr||'';
+      const actionColor={'전체 초기화':'#991b1b','강의실 초기화':'#c2410c','명단 업로드':'#1d4ed8','학생 이동':'#15803d','학생 삭제':'#b45309','접속':'#6b7280'}[r.action]||'#6b7280';
+      return`<div class="li-item" style="flex-direction:column;align-items:flex-start;gap:3px">
+        <div style="display:flex;align-items:center;gap:8px;width:100%">
+          <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${actionColor}22;color:${actionColor}">${r.action}</span>
+          <span style="font-size:12px;font-weight:600;color:var(--ink)">${r.name||r.email}</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--sl400)">${time}</span>
+        </div>
+        ${r.detail?`<div style="font-size:11px;color:var(--sl500);padding-left:4px">${r.detail}</div>`:''}
+      </div>`;
+    }).join('');
+  }catch(e){el.innerHTML=`<div class="empty-state" style="color:#991b1b">오류: ${e.message}</div>`;}
+}
+
+async function renderUserList(){
+  const el=document.getElementById('user-list');if(!el)return;
+  el.style.display=el.style.display==='none'?'block':'none';
+  if(el.style.display==='none')return;
+  el.innerHTML='<div class="empty-state">불러오는 중...</div>';
+  try{
+    const snap=await USERS.get();
+    if(snap.empty){el.innerHTML='<div class="empty-state">접속 기록 없음</div>';return;}
+    el.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--sl500);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">접속자 관리</div>`+
+      snap.docs.map(d=>{
+        const u=d.data();
+        return`<div class="li-item">
+          <div style="flex:1">
+            <div class="li-name">${u.name||'(이름없음)'}</div>
+            <div class="li-sub">${u.email} · ${u.approved?'✅ 승인됨':'⏳ 대기중'}</div>
+          </div>
+          ${!u.approved
+            ?`<button class="btn btn-green btn-sm" onclick="approveUser('${d.id}','${u.name}','${u.email}')">승인</button>`
+            :`<button class="btn btn-danger btn-xs" onclick="revokeUser('${d.id}','${u.name}')">취소</button>`
+          }
+        </div>`;
+      }).join('');
+  }catch(e){el.innerHTML=`<div class="empty-state" style="color:#991b1b">오류: ${e.message}</div>`;}
+}
+
+async function approveUser(uid,name,email){
+  await USERS.doc(uid).update({approved:true});
+  writeLog('접속 승인', `${name} (${email})`);
+  sendJandi('✅ QUETTA 접속 승인 완료',`${name} (${email}) 승인됨`,'#15803d');
+  toast(`${name} 승인 완료`,'ok');
+  renderUserList();renderUserList(); // 토글 후 다시 열기
+}
+async function revokeUser(uid,name){
+  if(!confirm(`"${name}" 접속 권한을 취소합니까?`))return;
+  await USERS.doc(uid).update({approved:false});
+  writeLog('접속 권한 취소', name);
+  toast(`${name} 권한 취소됨`,'ok');
+  renderUserList();renderUserList();
 }
 function addExamType(){
   const name=document.getElementById('et-new').value.trim();
@@ -1925,15 +2165,17 @@ function printAll(mode,maskNames=false){
 function confirmReset(){
   if(!confirm('배정된 학생 데이터를 초기화합니다.\n강의실 배열은 유지됩니다.\n\n계속하시겠습니까?')) return;
   const pw = prompt('⚠ 전체 초기화 비밀번호를 입력하세요:');
-  if(pw === null) return; // 취소
+  if(pw === null) return;
   if(pw !== '6688'){ alert('비밀번호가 틀렸습니다.'); return; }
   if(!confirm('⚠ 이 작업은 되돌릴 수 없습니다.\n정말 초기화하시겠습니까?')) return;
+  writeLog('전체 초기화', `학생 ${S.students.length}명 삭제`);
   S.students=[];S.swap=null;saveAll();renderAll();toast('학생 데이터 초기화 완료 (배열 유지)','ok');
 }
 
 function confirmResetRoom(roomId){
   const cnt = roomStu(roomId).length;
   if(!confirm(`"${roomId}" 강의실에 배정된 학생 ${cnt}명을 초기화합니다.\n계속하시겠습니까?`)) return;
+  writeLog('강의실 초기화', `${roomId} · ${cnt}명 삭제`);
   S.students = S.students.filter(s => s.고사장 !== roomId);
   S.students.forEach((s,i)=>s._i=i);
   saveAll(); renderAll();
@@ -2028,7 +2270,7 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ═══ INIT ═══ */
-load();
+// auth.onAuthStateChanged에서 승인 확인 후 load() 호출됨
 </script>
 </body>
 </html>
