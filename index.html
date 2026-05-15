@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>강남대성퀘타 모의고사 좌석배치</title>
+<title>강남대성기숙퀘타 모의고사 좌석배치</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Firebase SDK -->
@@ -279,7 +279,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
   <div style="background:#fff;border-radius:16px;padding:40px 36px;width:380px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,.15);text-align:center">
     <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px">
       <span style="background:#0891b2;color:#fff;font-size:12px;font-weight:900;padding:3px 10px;border-radius:5px;letter-spacing:.08em">QUETTA</span>
-      <span style="font-size:15px;font-weight:700;color:#0b1120">강남대성퀘타</span>
+      <span style="font-size:15px;font-weight:700;color:#0b1120">강남대성기숙퀘타</span>
     </div>
     <div style="font-size:13px;color:#94a3b8;margin-bottom:28px">모의고사 좌석배치 관리 시스템</div>
     <button id="google-login-btn" onclick="signInWithGoogle()"
@@ -312,13 +312,14 @@ input,select,textarea{font-family:inherit;cursor:auto}
 <div id="hdr">
   <div class="logo">
     <span class="logo-badge">QUETTA</span>
-    <span class="logo-title">강남대성퀘타 모의고사 좌석배치</span>
+    <span class="logo-title">강남대성기숙퀘타 모의고사 좌석배치</span>
   </div>
   <div class="hdr-right">
     <span id="sync-stat" style="font-size:10px;font-weight:600;color:#86efac;opacity:.8"></span>
     <span id="user-info" style="font-size:11px;color:rgba(255,255,255,.5);display:none"></span>
     <button id="logout-btn" onclick="firebase.auth().signOut()" style="display:none;background:rgba(255,255,255,.09);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.13);padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">로그아웃</button>
     <button class="btn btn-hdr btn-sm" onclick="openModal('search-modal')">🔍 학생 검색</button>
+    <button class="btn btn-hdr btn-sm" onclick="openSnapViewer()">📚 지난배치</button>
     <!-- 관리자 전용 버튼 -->
     <span id="admin-btns" style="display:none;gap:5px;align-items:center">
       <button class="btn btn-hdr btn-sm" onclick="openUplModal('all')">📤 전체 업로드</button>
@@ -375,6 +376,11 @@ input,select,textarea{font-family:inherit;cursor:auto}
     </div>
     <div class="mbody">
       <div id="upl-notice" style="display:none;padding:8px 11px;background:var(--blue-lt);border-radius:7px;font-size:12px;font-weight:600;color:var(--blue);margin-bottom:10px;border:1px solid #bfdbfe"></div>
+      <div id="upl-exam-wrap" style="display:none;padding:9px 11px;background:#f0fdf4;border-radius:7px;margin-bottom:10px;border:1px solid #bbf7d0">
+        <label style="display:block;font-size:10px;font-weight:700;color:#166534;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">📋 모의고사 선택 (선택, 비워두면 미설정)</label>
+        <select id="upl-exam" class="fi" style="font-size:12px;padding:6px 9px"></select>
+        <div style="font-size:10px;color:#166534;margin-top:5px;line-height:1.5">선택 시 업로드된 학생의 모든 강의실에 이 모의고사가 자동 지정됩니다.</div>
+      </div>
       <div class="upl" onclick="document.getElementById('fi').click()">
         <div style="font-size:26px;margin-bottom:6px">📊</div>
         <div style="font-weight:700;font-size:14px;margin-bottom:2px">클릭하여 파일 선택</div>
@@ -590,6 +596,17 @@ input,select,textarea{font-family:inherit;cursor:auto}
           <label><input type="radio" name="as-subject" value=""> 미지정</label>
         </div>
       </div>
+
+      <!-- 공석 정리 -->
+      <div class="modal-section">
+        <div class="modal-section-title">공석 정리</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn btn-danger btn-sm" onclick="pullEmptySeat()">🗑 이 자리 빼고 뒤 학생 당기기</button>
+        </div>
+        <div style="font-size:10px;color:var(--sl400);margin-top:5px;line-height:1.6">
+          · 이 빈 좌석부터 뒤에 있는 학생들을 한 칸씩 앞으로 당겨와 공석을 메웁니다.
+        </div>
+      </div>
     </div>
     <div class="mfoot">
       <button class="btn btn-sec" onclick="closeModal('add-stu-modal')">취소</button>
@@ -667,6 +684,20 @@ input,select,textarea{font-family:inherit;cursor:auto}
   </div>
 </div>
 
+<!-- ══ SNAPSHOT VIEWER (지난배치 조회) ══ -->
+<div class="overlay" id="snap-view-modal" onclick="ovClose(event,'snap-view-modal')">
+  <div class="modal modal-lg" style="width:960px">
+    <div class="mhd">
+      <span class="mhd-title">📚 지난 배치 조회</span>
+      <button class="btn btn-ghost" onclick="closeModal('snap-view-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div id="snap-view-list"></div>
+      <div id="snap-view-detail" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -685,7 +716,7 @@ const auth=firebase.auth();
 const DOC=db.collection('quetta').doc('state');
 const USERS=db.collection('quetta_users');
 const LOGS=db.collection('quetta_logs');
-const JANDI_WEBHOOK='https://wh.jandi.com/connect-api/webhook/30603710/b364767f5f3f0c895c35025ff2e48475';
+const JANDI_WEBHOOK='https://wh.jandi.com/connect-api/webhook/30603710/691ee09838881bef2c5e7e9c189d39dd';
 
 let _currentUser=null; // 현재 로그인 사용자
 
@@ -812,7 +843,7 @@ let S={
   active:null,view:'student',swap:null,editStudentMode:false,
 };
 let pendingExam='',_rzId=null,dragSrc=null,_editStuIdx=null,_uploadRoomId='all';
-let _statsExam='all',_pendingPrintAll=false;
+let _statsExam=null,_pendingPrintAll=false; // _statsExam null이면 첫 진입시 자동 선택
 let _saveTimer=null,_syncing=false;
 let _addStuRoom=null,_addStuN=0;
 let _undoStack=[]; // 최대 20단계 undo
@@ -1089,6 +1120,19 @@ function openUplModal(mode){
   const n=document.getElementById('upl-notice');
   if(isRoom){n.style.display='';n.innerHTML=`<b>${mode}</b> 강의실 업로드. 고사장 값이 다른 학생은 <b>미배정</b>으로 표시됩니다.`;}
   else n.style.display='none';
+  // 전체 업로드 시 모의고사 선택 드롭다운 노출
+  const examWrap=document.getElementById('upl-exam-wrap');
+  if(examWrap){
+    if(mode==='all'){
+      examWrap.style.display='';
+      const dd=document.getElementById('upl-exam');
+      dd.innerHTML='<option value="">-- 미설정 (기존 값 유지) --</option>'+
+        S.examTypes.map(et=>`<option value="${et.name}">${et.name}${et.date?' ('+et.date+')':''}</option>`).join('');
+      dd.value='';
+    } else {
+      examWrap.style.display='none';
+    }
+  }
   document.getElementById('upl-msg').textContent='';
   openModal('upl-modal');
 }
@@ -1126,15 +1170,25 @@ function handleUpload(e){
       if(_uploadRoomId==='all'){
         [...new Set(parsed.map(s=>s.고사장).filter(Boolean))].forEach(rn=>{if(!getRoom(rn))S.rooms.push(mkRoom(rn,8,9));});
         S.students=parsed;
+        // 선택된 모의고사를 업로드된 학생의 모든 강의실에 일괄 설정
+        const selExam=document.getElementById('upl-exam')?.value||'';
+        if(selExam){
+          const targetRoomNames=[...new Set(parsed.map(s=>s.고사장).filter(Boolean))];
+          targetRoomNames.forEach(rn=>{
+            const room=getRoom(rn);
+            if(room) room.examType=selExam;
+          });
+        }
       }else{
         S.students=S.students.filter(s=>s.고사장!==_uploadRoomId);
         S.students.push(...parsed);S.students.forEach((s,i)=>s._i=i);
       }
       const mc=parsed.filter(s=>s._mismatch).length;
+      const selExam=(_uploadRoomId==='all')?(document.getElementById('upl-exam')?.value||''):'';
       saveAll();renderAll();
-      writeLog('명단 업로드', `${_uploadRoomId} · ${parsed.length}명${mc?` (불일치 ${mc}명)`:''}`);
-      uplMsg(`✅ ${parsed.length}명 업로드 완료${mc?` (미배정 ${mc}명)`:''}`,'#14532d');
-      toast(`${parsed.length}명 업로드 완료`+(mc?` · 미배정 ${mc}명`:''),'ok');
+      writeLog('명단 업로드', `${_uploadRoomId} · ${parsed.length}명${mc?` (불일치 ${mc}명)`:''}${selExam?` [${selExam}]`:''}`);
+      uplMsg(`✅ ${parsed.length}명 업로드 완료${mc?` (미배정 ${mc}명)`:''}${selExam?` · 모의고사: <b>${selExam}</b>`:''}`,'#14532d');
+      toast(`${parsed.length}명 업로드 완료`+(mc?` · 미배정 ${mc}명`:'')+(selExam?` · ${selExam}`:''),'ok');
     }catch(err){uplMsg(`❌ 오류: ${err.message}`,'#7f1d1d');}
     e.target.value='';
   };
@@ -1155,7 +1209,12 @@ function renderAll(){renderTabs();renderMain();}
 function renderTabs(){
   document.getElementById('tabs').innerHTML=
     `<div class="tab ${S.active==='__stats__'?'on':''}" onclick="switchRoom('__stats__')" style="border-right:1px solid rgba(255,255,255,.1);margin-right:4px">📊 통계</div>`+
-    S.rooms.map(r=>{const cnt=roomStu(r.id).length;return`<div class="tab ${r.id===S.active?'on':''}" onclick="switchRoom('${r.id}')">${r.name}<span class="tab-n">${cnt}</span></div>`;}).join('');
+    S.rooms.map(r=>{
+      // 실제 배정 학생만 카운트: 활성 좌석 n에 매칭되는 학생만
+      const validNs=new Set(r.cells.filter(c=>c.state==='active').map(c=>c.n));
+      const cnt=roomStu(r.id).filter(s=>validNs.has(+s.자리)).length;
+      return`<div class="tab ${r.id===S.active?'on':''}" onclick="switchRoom('${r.id}')">${r.name}<span class="tab-n">${cnt}</span></div>`;
+    }).join('');
 }
 function renderMain(){
   if(S.active==='__stats__'){renderStats();return;}
@@ -1226,6 +1285,7 @@ function renderGrid(room,isProctor){
     ?classEntries.map(([ban,code])=>`<span style="font-size:11px;font-weight:700;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;margin-right:4px">${ban} · ${code}</span>`).join('')
     :'';
   const prtHdr=`<div class="print-hdr-block">
+    <div style="font-size:11px;color:var(--sl500);font-weight:600;margin-bottom:3px">강남대성기숙퀘타 모의고사 좌석배치</div>
     <div class="phb-top">
       <span class="phb-room">${room.name}</span>
       ${room.examType?`<span class="phb-exam">${room.examType}</span>`:''}
@@ -1283,7 +1343,19 @@ function uaHtml(room,ua){
 }
 
 /* ═══ STATS ═══ */
+// 시행일이 오늘 포함 미래 가장 가까운 모의고사 반환 (없으면 'all')
+function _autoStatsExam(){
+  const today=new Date();today.setHours(0,0,0,0);
+  const future=S.examTypes.filter(et=>{
+    if(!et.date) return false;
+    const d=new Date(et.date);d.setHours(0,0,0,0);
+    return d>=today;
+  }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  return future.length?future[0].name:'all';
+}
 function renderStats(){
+  // _statsExam이 null이면 첫 진입 → 자동 선택
+  if(_statsExam===null) _statsExam=_autoStatsExam();
   document.getElementById('bar-stat').textContent='통계';
   document.getElementById('exam-row').style.display='none';
   const ef=_statsExam==='all'?null:_statsExam;
@@ -1303,13 +1375,16 @@ function renderStats(){
       gwt:rs.filter(s=>(s.탐구||'').includes('과탐')).length,
       sag:rs.filter(s=>(s.탐구||'').includes('사과')).length};
   }).filter(x=>x.cnt>0||x.act>0);
-  const examOpts=['<option value="all">전체 (모의고사 무관)</option>',
+  const examOpts=[`<option value="all" ${_statsExam==='all'?'selected':''}>전체 (모의고사 무관)</option>`,
     ...S.examTypes.map(et=>`<option value="${et.name}" ${_statsExam===et.name?'selected':''}>${et.name}${et.date?' ('+et.date+')':''}</option>`)].join('');
+  const autoSel=_autoStatsExam();
+  const isAuto=(_statsExam===autoSel&&_statsExam!=='all');
   document.getElementById('main').innerHTML=`
     <div class="card" style="margin-bottom:10px">
       <div class="stats-filter-bar">
         <span style="font-size:11px;font-weight:700;color:var(--sl500)">모의고사 필터</span>
         <select class="stats-sel" onchange="_statsExam=this.value;renderStats()">${examOpts}</select>
+        ${isAuto?`<span style="font-size:10px;font-weight:600;color:#15803d;background:#dcfce7;padding:2px 7px;border-radius:10px">📅 시행 예정 자동선택</span>`:''}
         ${ef?`<span style="font-size:11px;color:var(--sl400)">${fRooms.length}개 강의실 · ${total}명</span>`:''}
       </div>
     </div>
@@ -1563,7 +1638,26 @@ function saveRoomExam(){
   const room=getRoom(S.active);if(!room) return;
   // ▼ 모의고사 미선택 시 저장 차단
   if(!pendingExam){alert('모의고사를 선택한 후 저장해주세요.');return;}
-  room.examType=pendingExam;saveAll();renderMain();toast(`${room.name}: "${pendingExam}" 저장`,'ok');
+  // 변경사항 없음
+  if(room.examType===pendingExam){
+    toast('변경사항이 없습니다','');
+    return;
+  }
+  // 두 가지 케이스 검사 → 확인 다이얼로그
+  const msgs=[];
+  if(room.examType && room.examType!==pendingExam){
+    msgs.push(`• "${room.name}"의 모의고사를 [${room.examType}] → [${pendingExam}]로 변경합니다.`);
+  }
+  const otherRooms=S.rooms.filter(r=>r.id!==room.id && r.examType===pendingExam);
+  if(otherRooms.length){
+    msgs.push(`• 이미 다른 강의실(${otherRooms.map(r=>r.name).join(', ')})에 "${pendingExam}"이(가) 설정되어 있습니다.`);
+  }
+  if(msgs.length){
+    if(!confirm(`⚠ 모의고사 저장 확인\n\n${msgs.join('\n\n')}\n\n계속 진행하시겠습니까?`)) return;
+  }
+  room.examType=pendingExam;saveAll();renderMain();
+  toast(`${room.name}: "${pendingExam}" 저장`,'ok');
+  writeLog('모의고사 설정', `${room.name} → ${pendingExam}`);
 }
 
 /* ═══ MANUAL ADD STUDENT ═══ */
@@ -1590,6 +1684,19 @@ function saveAddStu(){
     탐구:document.querySelector('[name="as-subject"]:checked')?.value||'',
     수학선택:'',고사장:_addStuRoom,자리:_addStuN});
   saveAll();renderAll();closeModal('add-stu-modal');toast(`${name} 등록 완료`,'ok');
+}
+function pullEmptySeat(){
+  if(!_addStuRoom||!_addStuN){toast('자리 정보 없음','err');return;}
+  const cell=getRoom(_addStuRoom)?.cells.find(c=>c.n===_addStuN);
+  if(!cell||cell.state!=='active'){toast('활성 좌석이 아닙니다','err');return;}
+  // 이미 누군가 배정돼 있으면 거절
+  if(seatStu(_addStuRoom,_addStuN)){toast('이미 학생이 배정된 자리입니다','err');return;}
+  if(!confirm(`"${_addStuRoom}" 강의실의 이 빈 자리를 제거하고\n뒤 학생들을 한 칸씩 앞으로 당기시겠습니까?`)) return;
+  saveUndo();
+  shiftBackFrom(_addStuRoom,_addStuN);
+  saveAll();renderAll();closeModal('add-stu-modal');
+  toast(`공석 정리 완료 — 뒤 학생들 한 칸씩 당김`,'ok');
+  writeLog('공석 당기기', `${_addStuRoom} ${_addStuN}번`);
 }
 function toggleEditStudentMode(){
   S.editStudentMode=!S.editStudentMode;
@@ -1872,6 +1979,117 @@ function _execLoadSnap(id){
 }
 function removeSnap(id){S.snapshots=S.snapshots.filter(s=>s.id!==id);saveAll();renderSnapList();}
 
+/* ═══ SNAPSHOT VIEWER (지난배치 조회 — 헤더 버튼) ═══ */
+let _viewSnapId=null,_viewSnapRoom=null;
+function openSnapViewer(){
+  _viewSnapId=null;_viewSnapRoom=null;
+  renderSnapViewerList();
+  openModal('snap-view-modal');
+}
+function renderSnapViewerList(){
+  const list=document.getElementById('snap-view-list');
+  const detail=document.getElementById('snap-view-detail');
+  if(!list||!detail) return;
+  list.style.display='';detail.style.display='none';
+  if(!S.snapshots.length){
+    list.innerHTML='<div class="empty-state" style="padding:40px">저장된 배치가 없습니다.<br><span style="font-size:11px;color:var(--sl400)">⚙ 설정 → 저장/불러오기 또는 💾 저장 버튼에서 현재 배치를 저장할 수 있습니다.</span></div>';
+    return;
+  }
+  list.innerHTML='<div style="font-size:11px;color:var(--sl500);margin-bottom:10px">저장된 배치를 클릭하면 좌석 배열을 미리볼 수 있습니다.</div>'+
+    [...S.snapshots].reverse().map(sn=>{
+      const adminBtns=_adminMode?`
+        <button class="btn btn-sec btn-xs" onclick="event.stopPropagation();if(confirm('현재 배치를 \\'${sn.name}\\'로 덮어쓰시겠습니까?')){closeModal('snap-view-modal');loadSnap('${sn.id}');}">현재로 불러오기</button>
+        <button class="btn btn-green btn-xs" onclick="event.stopPropagation();downloadSnapExcel('${sn.id}')">⬇ 엑셀</button>`:'';
+      return`<div class="li-item" style="cursor:pointer" onclick="renderSnapViewerDetail('${sn.id}')">
+        <div style="flex:1">
+          <div class="li-name">${sn.name}</div>
+          <div class="li-sub">${sn.date} · 학생 ${sn.students.length}명 · 강의실 ${sn.rooms.length}개</div>
+        </div>
+        ${adminBtns}
+        <span style="font-size:11px;color:var(--sl400);margin-left:6px">미리보기 →</span>
+      </div>`;
+    }).join('');
+}
+function renderSnapViewerDetail(snapId){
+  const sn=S.snapshots.find(s=>s.id===snapId);if(!sn)return;
+  _viewSnapId=snapId;
+  if(!_viewSnapRoom||!sn.rooms.find(r=>r.id===_viewSnapRoom)){
+    _viewSnapRoom=sn.rooms[0]?.id||null;
+  }
+  const list=document.getElementById('snap-view-list');
+  const detail=document.getElementById('snap-view-detail');
+  list.style.display='none';detail.style.display='';
+  const room=sn.rooms.find(r=>r.id===_viewSnapRoom);
+  if(!room){
+    detail.innerHTML=`<button class="btn btn-sec btn-sm" onclick="renderSnapViewerList()">← 목록</button><div class="empty-state">강의실 없음</div>`;
+    return;
+  }
+  // 좌석 그리드 (읽기전용, 인라인 스타일)
+  const seatW=72;
+  const sorted=[...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
+  const colEmpty=Array(room.cols).fill(true);
+  room.cells.forEach(c=>{if(c.state!=='void') colEmpty[c.c]=false;});
+  const colTpl=colEmpty.map(e=>e?'28px':`${seatW}px`).join(' ');
+  const stusInRoom=sn.students.filter(s=>s.고사장===room.id);
+  let cardsHTML='';
+  sorted.forEach(cell=>{
+    if(cell.state==='void'){cardsHTML+=`<div style="width:28px"></div>`;return;}
+    if(cell.state==='blocked'){
+      cardsHTML+=`<div style="width:${seatW}px;min-height:62px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fafafa;padding:4px 5px 5px;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span></span>
+          <span style="background:#94a3b8;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px">${cell.dn}</span>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94a3b8;margin-top:8px">미사용</div>
+      </div>`;return;
+    }
+    const stu=stusInRoom.find(s=>+s.자리===cell.n);
+    const bg=stu?(stu.성별==='남'?'#eff6ff':stu.성별==='여'?'#fdf4ff':'#f8fafc'):'#f8fafc';
+    const bd=stu?(stu.성별==='남'?'#93c5fd':stu.성별==='여'?'#d8b4fe':'#e2e8f0'):'#e2e8f0';
+    let inner=`<div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:10px;font-weight:800;color:#2563eb;line-height:1.2">${stu?stu.반코드||'':''}</span>
+      <span style="background:#1e293b;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px">${cell.dn}</span>
+    </div>`;
+    if(stu){
+      inner+=`<div style="font-size:10px;font-weight:700;color:#475569;line-height:1.4;margin-top:2px">${stu.학번}</div>
+              <div style="font-size:13px;font-weight:800;color:#0b1120;line-height:1.3;margin-top:2px">${stu.이름}</div>`;
+    } else inner+=`<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:12px;margin-top:6px">·</div>`;
+    cardsHTML+=`<div style="border-radius:6px;border:1.5px solid ${bd};background:${bg};padding:4px 5px 5px;min-height:62px;width:${seatW}px;display:flex;flex-direction:column;gap:1px">${inner}</div>`;
+  });
+  // 강의실 탭 (스냅샷 내 강의실 목록)
+  const roomTabs=sn.rooms.map(r=>{
+    const validNs=new Set(r.cells.filter(c=>c.state==='active').map(c=>c.n));
+    const cnt=sn.students.filter(s=>s.고사장===r.id && validNs.has(+s.자리)).length;
+    return`<button class="btn btn-xs ${r.id===_viewSnapRoom?'btn-pri':'btn-sec'}" onclick="_viewSnapRoom='${r.id}';renderSnapViewerDetail('${snapId}')">${r.name} <span style="opacity:.7;font-size:9px">${cnt}</span></button>`;
+  }).join('');
+  // 통계 요약
+  const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
+  const actualStus=stusInRoom.filter(s=>validNs.has(+s.자리));
+  const m=actualStus.filter(s=>s.성별==='남').length;
+  const f=actualStus.filter(s=>s.성별==='여').length;
+  const adminLoadBtn=_adminMode?`<button class="btn btn-sec btn-sm" style="margin-left:auto" onclick="if(confirm('현재 배치를 \\'${sn.name}\\'로 덮어쓰시겠습니까?')){closeModal('snap-view-modal');loadSnap('${snapId}');}">📥 현재로 불러오기</button>`:'';
+  detail.innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-sec btn-sm" onclick="renderSnapViewerList()">← 목록</button>
+      <span style="font-weight:800;font-size:15px">${sn.name}</span>
+      <span style="color:var(--sl400);font-size:11px">${sn.date} · 학생 ${sn.students.length}명 · 강의실 ${sn.rooms.length}개</span>
+      ${adminLoadBtn}
+    </div>
+    <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--sl200)">${roomTabs}</div>
+    <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;font-size:11px;color:var(--sl500)">
+      <span><b style="color:var(--ink)">${room.name}</b>${room.examType?` · ${room.examType}`:''}</span>
+      <span>배정 <b style="color:var(--ink)">${actualStus.length}</b>명</span>
+      <span>남 <b>${m}</b> / 여 <b>${f}</b></span>
+      ${room.notice?`<span style="background:#fefce8;border-left:3px solid #fde047;padding:2px 7px;color:#78350f">📌 ${room.notice}</span>`:''}
+    </div>
+    <div style="border:1px solid var(--sl200);border-radius:8px;padding:14px;overflow-x:auto;background:var(--sl50)">
+      <div style="background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7);margin-bottom:8px;max-width:${seatW*room.cols+28*colEmpty.filter(e=>e).length+room.cols*3}px;margin-left:auto;margin-right:auto">칠 판</div>
+      <div style="display:grid;grid-template-columns:${colTpl};gap:3px;width:fit-content;margin:0 auto">${cardsHTML}</div>
+    </div>
+    <div style="font-size:10px;color:var(--sl400);margin-top:10px;text-align:center">※ 이 화면은 읽기 전용입니다.${_adminMode?'':' 관리자 모드로 전환하면 불러오기/엑셀 다운로드가 가능합니다.'}</div>
+  `;
+}
+
 function downloadSnapExcel(id){
   const sn=S.snapshots.find(s=>s.id===id);
   if(!sn){toast('저장 데이터 없음','err');return;}
@@ -2106,6 +2324,7 @@ function printAll(mode,maskNames=false){
     const boardBottom=!isStudent?`<div style="margin:4px 0;background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7)">칠 판</div>`:'';
     return`<div class="room-page" style="page-break-after:always;padding:0">
       <div style="border-bottom:2px solid #0b1120;padding-bottom:6px;margin-bottom:6px">
+        <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:3px">강남대성기숙퀘타 모의고사 좌석배치</div>
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
           <span style="font-size:20px;font-weight:900">${room.name}</span>
           ${room.examType?`<span style="font-size:13px;font-weight:700;color:#2563eb">${room.examType}</span>`:''}
@@ -2123,7 +2342,7 @@ function printAll(mode,maskNames=false){
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
-    <title>${isStudent?'학생용':'시감자용'} 전체 배치표</title>
+    <title>강남대성기숙퀘타 모의고사 좌석배치 — ${isStudent?'학생용':'시감자용'} 전체 배치표</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
