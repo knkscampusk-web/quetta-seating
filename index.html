@@ -323,6 +323,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
     <!-- 관리자 전용 버튼 -->
     <span id="admin-btns" style="display:none;gap:5px;align-items:center">
       <button class="btn btn-hdr btn-sm" onclick="openUplModal('all')">📤 전체 업로드</button>
+      <button class="btn btn-hdr btn-sm" onclick="downloadAllExcel()">📊 전체명단 엑셀</button>
       <button class="btn btn-hdr btn-sm" onclick="doSaveSnap()">💾 저장</button>
       <button class="btn btn-hdr btn-sm" onclick="openSettings()">⚙ 설정</button>
     </span>
@@ -351,6 +352,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
   <div class="bar-sep"></div>
   <span id="bar-stat"></span>
   <button class="btn btn-sec btn-sm" onclick="openUplModal(S.active)">📤 명단 업로드</button>
+  <button class="btn btn-sec btn-sm" onclick="openLoadRoomSnap()">🔄 지난 배치 불러오기</button>
   <button class="btn btn-sec btn-sm" onclick="doPrint()">🖨 인쇄</button>
   <div style="width:1px;height:18px;background:var(--sl200);margin:0 2px"></div>
   <span id="admin-print-btns" style="display:none;gap:5px;align-items:center">
@@ -698,6 +700,21 @@ input,select,textarea{font-family:inherit;cursor:auto}
   </div>
 </div>
 
+<!-- ══ LOAD ROOM SNAPSHOT (강의실 지난 배치 불러오기) ══ -->
+<div class="overlay" id="load-room-snap-modal" onclick="ovClose(event,'load-room-snap-modal')">
+  <div class="modal modal-lg" style="width:760px">
+    <div class="mhd">
+      <span class="mhd-title">🔄 지난 배치 불러오기</span>
+      <button class="btn btn-ghost" onclick="closeModal('load-room-snap-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div id="lrs-step1"></div>
+      <div id="lrs-step2" style="display:none"></div>
+      <div id="lrs-step3" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -891,6 +908,52 @@ function _applyAdminUI(){
 }
 
 /* ═══ FIREBASE SAVE ═══ */
+/* ═══ 자동 스냅샷 (시행일 지난 모의고사) ═══ */
+let _autoSnapChecked=false;
+function checkAutoSnap(){
+  if(_autoSnapChecked) return; // 세션당 1회만
+  _autoSnapChecked=true;
+  if(!S.examTypes?.length) return;
+  if(!S.snapshots) S.snapshots=[];
+  if(!S.autoSnapFlags) S.autoSnapFlags=[];
+
+  const today=new Date();today.setHours(0,0,0,0);
+  let saved=0;
+  S.examTypes.forEach(et=>{
+    if(!et.date) return;
+    const examDate=new Date(et.date);examDate.setHours(0,0,0,0);
+    // 시행일이 오늘보다 과거여야 함 (지난 모의고사)
+    if(examDate>=today) return;
+    // 이미 자동 저장된 적 있음
+    if(S.autoSnapFlags.includes(et.name)) return;
+    // 이 examType이 어떤 강의실에 설정되어 있는지
+    const hasRoom=S.rooms.some(r=>r.examType===et.name);
+    if(!hasRoom) return;
+    // 동일/유사 이름 수동 스냅샷이 이미 있으면 플래그만 박고 건너뛰기
+    const snapName=`${et.name} (자동저장 ${et.date})`;
+    if(S.snapshots.find(s=>s.name===snapName||s.name===et.name)){
+      S.autoSnapFlags.push(et.name);
+      return;
+    }
+    // 자동 스냅샷 저장
+    S.snapshots.push({
+      id:'auto_'+Date.now().toString()+'_'+saved,
+      name:snapName,
+      date:new Date().toLocaleDateString('ko-KR'),
+      rooms:JSON.parse(JSON.stringify(S.rooms)),
+      students:JSON.parse(JSON.stringify(S.students)),
+      autoSaved:true,
+    });
+    S.autoSnapFlags.push(et.name);
+    saved++;
+    console.log('[자동 스냅샷 저장]', snapName);
+  });
+  if(saved>0){
+    saveAll();
+    writeLog('자동 스냅샷 저장', `${saved}건 (시행일 지난 모의고사)`);
+  }
+}
+
 function saveAll(){
   if(S.view==='edit'){saveTempLocal();return;}
   pushToFirebase();
@@ -905,6 +968,7 @@ function pushToFirebase(){
     if(stat){stat.textContent='저장 중...';stat.style.color='#fde68a';}
     _syncing=true; // 내가 저장 중 — onSnapshot이 덮어씌우지 않도록
     DOC.set({rooms:S.rooms,students:S.students,examTypes:S.examTypes,snapshots:S.snapshots,
+      autoSnapFlags:S.autoSnapFlags||[],
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
       .then(()=>{
         if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';}
@@ -941,7 +1005,7 @@ function load(){
         }
         // 복구 실패해도 기본값으로 덮어쓰지 않음
         if(!S.rooms.length) S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));
-        S.active=S.rooms[0]?.id||null;
+        S.active='__stats__';
         renderAll();return;
       }
       if(d.students?.length)  S.students=d.students;
@@ -949,18 +1013,27 @@ function load(){
       if(d.examTypes?.length) S.examTypes=d.examTypes.map(et=>typeof et==='string'?{name:et,date:''}:et);
       if(d.snapshots?.length) S.snapshots=d.snapshots;
       else if(d.snapshots)    S.snapshots=[];
-      if(!S.active||!S.rooms.find(r=>r.id===S.active)) S.active=S.rooms[0]?.id||null;
+      if(d.autoSnapFlags)     S.autoSnapFlags=d.autoSnapFlags;
+      else                    S.autoSnapFlags=S.autoSnapFlags||[];
+      // 첫 접속 시(active 비었거나 유효하지 않을 때): 통계 탭
+      if(!S.active||(S.active!=='__stats__'&&!S.rooms.find(r=>r.id===S.active))){
+        S.active='__stats__';
+      }
+      // 자동 스냅샷 체크 (세션당 1회)
+      setTimeout(checkAutoSnap, 1000);
     } else {
       // Firebase에 문서 자체가 없는 경우만 초기화 허용
       const migrated=migrateFromLocalStorage();
-      if(!migrated){S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));S.active=S.rooms[0]?.id||null;}
+      if(!migrated){S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));}
+      S.active='__stats__';
       saveAll();
     }
     renderAll();
   },err=>{
     console.error(err);
     migrateFromLocalStorage();
-    if(!S.rooms.length){S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));S.active=S.rooms[0]?.id||null;}
+    if(!S.rooms.length){S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));}
+    S.active='__stats__';
     renderAll();
   });
 }
@@ -1327,6 +1400,7 @@ function saveNotice(roomId,val){const room=getRoom(roomId);if(!room)return;room.
 function uaHtml(room,ua){
   const chips=ua.map(s=>`
     <div class="ua-chip ${s._mismatch?'mismatch':''}" draggable="true"
+      data-hak="${(s.학번||'').replace(/"/g,'')}"
       ondragstart="onDragStart(event,'unassigned','${room.id}',0,${s._i})" ondragend="onDragEnd(event)"
       onclick="openEditStu(${s._i})">
       ${s._mismatch?'⚠ ':''}${gBdg(s)}${tBdg(s)}<span>${s.이름}</span><span class="ua-mini">${s.학번}</span>
@@ -1979,6 +2053,164 @@ function _execLoadSnap(id){
 }
 function removeSnap(id){S.snapshots=S.snapshots.filter(s=>s.id!==id);saveAll();renderSnapList();}
 
+/* ═══ 강의실 지난 배치 불러오기 (각 강의실 탭에서 사용) ═══ */
+let _lrsSnapId=null, _lrsSnapRoomId=null;
+function openLoadRoomSnap(){
+  if(S.active==='__stats__'){toast('강의실 탭에서만 사용 가능','err');return;}
+  const currentRoom=getRoom(S.active);
+  if(!currentRoom){toast('현재 강의실 없음','err');return;}
+  if(!S.snapshots?.length){toast('저장된 배치가 없습니다','err');return;}
+  _lrsSnapId=null;_lrsSnapRoomId=null;
+  renderLrsStep1();
+  openModal('load-room-snap-modal');
+}
+function renderLrsStep1(){
+  const s1=document.getElementById('lrs-step1');
+  const s2=document.getElementById('lrs-step2');
+  const s3=document.getElementById('lrs-step3');
+  s1.style.display='';s2.style.display='none';s3.style.display='none';
+  s1.innerHTML=`<div style="font-size:12px;color:var(--sl500);margin-bottom:12px">
+    <b style="color:var(--ink)">"${S.active}"</b> 강의실에 불러올 배치 데이터를 선택하세요.
+  </div>` + [...S.snapshots].reverse().map(sn=>{
+    const autoBadge=sn.autoSaved?'<span style="font-size:9px;background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:8px;margin-left:4px">자동저장</span>':'';
+    return`<div class="li-item" style="cursor:pointer" onclick="lrsSelectSnap('${sn.id}')">
+      <div style="flex:1">
+        <div class="li-name">${sn.name}${autoBadge}</div>
+        <div class="li-sub">${sn.date} · 학생 ${sn.students.length}명 · 강의실 ${sn.rooms.length}개</div>
+      </div>
+      <span style="font-size:11px;color:var(--sl400)">→ 선택</span>
+    </div>`;
+  }).join('');
+}
+function lrsSelectSnap(snapId){
+  _lrsSnapId=snapId;
+  const sn=S.snapshots.find(s=>s.id===snapId);if(!sn)return;
+  const s1=document.getElementById('lrs-step1');
+  const s2=document.getElementById('lrs-step2');
+  s1.style.display='none';s2.style.display='';
+  s2.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <button class="btn btn-sec btn-sm" onclick="renderLrsStep1()">← 뒤로</button>
+    <span style="font-weight:700">${sn.name}</span>
+    <span style="font-size:11px;color:var(--sl400)">${sn.date}</span>
+  </div>
+  <div style="font-size:12px;color:var(--sl500);margin-bottom:10px">
+    이 스냅샷에서 어느 강의실의 데이터를 가져올까요?
+  </div>` + sn.rooms.map(r=>{
+    const validNs=new Set(r.cells.filter(c=>c.state==='active').map(c=>c.n));
+    const cnt=sn.students.filter(s=>s.고사장===r.id && validNs.has(+s.자리)).length;
+    const sameName=r.id===S.active?'<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;margin-left:6px">같은 이름 강의실</span>':'';
+    return`<div class="li-item" style="cursor:pointer" onclick="lrsSelectRoom('${r.id}')">
+      <div style="flex:1">
+        <div class="li-name">${r.name}${sameName}</div>
+        <div class="li-sub">배정 ${cnt}명 · ${r.rows}×${r.cols}${r.examType?` · ${r.examType}`:''}</div>
+      </div>
+      <span style="font-size:11px;color:var(--sl400)">→ 선택</span>
+    </div>`;
+  }).join('');
+}
+function lrsSelectRoom(snapRoomId){
+  _lrsSnapRoomId=snapRoomId;
+  const sn=S.snapshots.find(s=>s.id===_lrsSnapId);if(!sn)return;
+  const snapRoom=sn.rooms.find(r=>r.id===snapRoomId);if(!snapRoom)return;
+  const validNs=new Set(snapRoom.cells.filter(c=>c.state==='active').map(c=>c.n));
+  const stusInSnap=sn.students.filter(s=>s.고사장===snapRoomId && validNs.has(+s.자리));
+  // 현재 S.students에 없는 학생들 (학번 기준)
+  const currentHaks=new Set(S.students.map(s=>s.학번));
+  const newStus=stusInSnap.filter(s=>!currentHaks.has(s.학번));
+
+  const s2=document.getElementById('lrs-step2');
+  const s3=document.getElementById('lrs-step3');
+  s2.style.display='none';s3.style.display='';
+  s3.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <button class="btn btn-sec btn-sm" onclick="lrsSelectSnap('${_lrsSnapId}')">← 뒤로</button>
+    <span style="font-weight:700">${sn.name} → ${snapRoom.name}</span>
+  </div>
+  <div style="background:var(--sl50);border:1px solid var(--sl200);border-radius:10px;padding:12px;margin-bottom:12px">
+    <div style="font-size:11px;color:var(--sl500);margin-bottom:6px">불러올 데이터 요약</div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.7">
+      · 학생 ${stusInSnap.length}명 (활성 좌석 배정)<br>
+      · 좌석 구조: ${snapRoom.rows}행 × ${snapRoom.cols}열<br>
+      · 모의고사: ${snapRoom.examType||'(미설정)'}<br>
+      ${newStus.length?`· <span style="color:#c2410c;font-weight:700">현재 명단에 없는 학생 ${newStus.length}명 → 새로 추가</span>`:''}
+    </div>
+  </div>
+  <div style="margin-bottom:14px">
+    <div style="font-size:11px;font-weight:700;color:var(--sl500);margin-bottom:8px">불러오기 방식 선택</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-sec" style="text-align:left;padding:11px 14px;justify-content:flex-start" onclick="lrsApply('students')">
+        <div>
+          <div style="font-weight:700;font-size:13px;color:var(--ink)">A) 학생만 교체</div>
+          <div style="font-size:11px;color:var(--sl400);margin-top:2px">현재 강의실의 좌석 구조는 그대로 두고, 그때 배정됐던 학생들만 같은 자리(n)에 배치</div>
+        </div>
+      </button>
+      <button class="btn btn-sec" style="text-align:left;padding:11px 14px;justify-content:flex-start" onclick="lrsApply('full')">
+        <div>
+          <div style="font-weight:700;font-size:13px;color:var(--ink)">B) 강의실 통째 복원</div>
+          <div style="font-size:11px;color:var(--sl400);margin-top:2px">좌석 구조(rows/cols/cells)·모의고사·공지·학생 모두 그때 그대로 복원</div>
+        </div>
+      </button>
+    </div>
+  </div>
+  <div style="padding:9px 11px;background:#fffbeb;border-radius:7px;font-size:11px;color:#92400e;border:1px solid #fde68a">
+    ⚠ 적용 후에는 메모리에만 반영됩니다. 결과를 확인하고 만족스러우면 헤더의 [💾 저장] 또는 모의고사 [저장] 버튼으로 Firebase에 저장하세요.<br>
+    저장하지 않고 새로고침하면 원래대로 돌아옵니다.
+  </div>`;
+}
+function lrsApply(mode){
+  const sn=S.snapshots.find(s=>s.id===_lrsSnapId);if(!sn){toast('스냅샷 없음','err');return;}
+  const snapRoom=sn.rooms.find(r=>r.id===_lrsSnapRoomId);if(!snapRoom){toast('강의실 없음','err');return;}
+  const curRoom=getRoom(S.active);if(!curRoom){toast('현재 강의실 없음','err');return;}
+  if(!confirm(`"${sn.name}"의 "${snapRoom.name}" 데이터를 현재 "${S.active}" 강의실에 ${mode==='full'?'통째로 복원':'학생만 교체'}합니다.\n\n계속하시겠습니까?`)) return;
+  saveUndo();
+  // 1) 현재 강의실에 배정된 학생 제거 (학생 목록에서는 안 지움, 자리만 비움)
+  S.students.forEach(s=>{if(s.고사장===S.active){s.고사장='';s.자리=0;}});
+  // 2) 스냅샷의 그 강의실에 있던 학생들을 처리
+  const validNs=new Set(snapRoom.cells.filter(c=>c.state==='active').map(c=>c.n));
+  const stusInSnap=sn.students.filter(s=>s.고사장===_lrsSnapRoomId && validNs.has(+s.자리));
+  const currentByHak=new Map();
+  S.students.forEach(s=>currentByHak.set(s.학번,s));
+  let added=0,updated=0;
+  stusInSnap.forEach(snapStu=>{
+    const existing=currentByHak.get(snapStu.학번);
+    if(existing){
+      // 기존 학생 → 자리 정보만 업데이트
+      existing.고사장=S.active;
+      existing.자리=+snapStu.자리;
+      existing._mismatch=false;
+      // 데이터도 함께 업데이트 (반/이름 등 변경되었을 수 있음)
+      ['반','성별','이름','수학선택','탐구','반코드'].forEach(k=>{
+        if(snapStu[k]!==undefined) existing[k]=snapStu[k];
+      });
+      updated++;
+    } else {
+      // 새 학생 추가
+      const newStu=JSON.parse(JSON.stringify(snapStu));
+      newStu.고사장=S.active;
+      newStu.자리=+snapStu.자리;
+      newStu._i=S.students.length;
+      newStu._mismatch=false;
+      S.students.push(newStu);
+      added++;
+    }
+  });
+  // _i 재계산
+  S.students.forEach((s,i)=>s._i=i);
+  // 3) full 모드면 좌석 구조도 복원
+  if(mode==='full'){
+    curRoom.rows=snapRoom.rows;
+    curRoom.cols=snapRoom.cols;
+    curRoom.cells=JSON.parse(JSON.stringify(snapRoom.cells));
+    if(snapRoom.examType!==undefined) curRoom.examType=snapRoom.examType;
+    if(snapRoom.notice!==undefined) curRoom.notice=snapRoom.notice;
+  }
+  // 메모리만 갱신, 저장은 사용자 결정
+  renderAll();
+  closeModal('load-room-snap-modal');
+  const modeLabel=mode==='full'?'통째 복원':'학생만 교체';
+  toast(`✅ ${modeLabel} — 신규 ${added}명, 갱신 ${updated}명. [💾 저장] 눌러서 확정하세요`,'ok');
+  writeLog('지난배치 불러오기', `"${sn.name}/${snapRoom.name}" → ${S.active} (${modeLabel}, +${added}/~${updated})`);
+}
+
 /* ═══ SNAPSHOT VIEWER (지난배치 조회 — 헤더 버튼) ═══ */
 let _viewSnapId=null,_viewSnapRoom=null;
 function openSnapViewer(){
@@ -2088,6 +2320,40 @@ function renderSnapViewerDetail(snapId){
     </div>
     <div style="font-size:10px;color:var(--sl400);margin-top:10px;text-align:center">※ 이 화면은 읽기 전용입니다.${_adminMode?'':' 관리자 모드로 전환하면 불러오기/엑셀 다운로드가 가능합니다.'}</div>
   `;
+}
+
+/* ═══ 전체 명단 엑셀 다운로드 (관리자 전용) ═══ */
+function downloadAllExcel(){
+  if(!_adminMode){toast('관리자 모드 필요','err');return;}
+  if(!S.students.length){toast('학생 데이터 없음','err');return;}
+  const wb=XLSX.utils.book_new();
+  // 컬럼: 반·성별·이름·학번·수학선택·탐구·반코드·고사장·좌석번호(dn=화면표시)·자리(n=업로드)
+  const hdrs=['반','성별','이름','학번','수학선택','탐구','반코드','고사장','좌석번호','자리'];
+  // 각 학생에 dn 매핑 + 정렬용 필드
+  const rowsData=S.students.map(s=>{
+    const room=getRoom(s.고사장);
+    const cell=room?.cells.find(c=>c.n===+s.자리&&c.state==='active');
+    return{s,dn:cell?cell.dn:'',sortRoom:s.고사장||'zzzz_미배정',sortDn:cell?cell.dn:9999};
+  });
+  // 정렬: 강의실명 → 좌석번호(dn)
+  rowsData.sort((a,b)=>{
+    if(a.sortRoom!==b.sortRoom) return a.sortRoom.localeCompare(b.sortRoom,'ko');
+    return a.sortDn-b.sortDn;
+  });
+  const rows=rowsData.map(({s,dn})=>[
+    s.반||'',s.성별||'',s.이름||'',s.학번||'',
+    s.수학선택||'',s.탐구||'',s.반코드||'',
+    s.고사장||'',dn||'',s.자리||''
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([hdrs,...rows]);
+  ws['!cols']=hdrs.map((h,i)=>({wch:i===2?14:(i===7?14:10)}));
+  XLSX.utils.book_append_sheet(wb,ws,'전체명단');
+  // 파일명: 날짜+시간
+  const now=new Date();
+  const dt=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  XLSX.writeFile(wb,`quetta_전체명단_${dt}.xlsx`);
+  writeLog('전체명단 엑셀 다운로드', `${S.students.length}명`);
+  toast(`✅ 전체 ${S.students.length}명 엑셀 다운로드 완료`,'ok');
 }
 
 function downloadSnapExcel(id){
@@ -2421,38 +2687,64 @@ function doSearch(q){
   }
   el.innerHTML=hits.map(s=>{
     const room=getRoom(s.고사장);
-    const cell=room?.cells.find(c=>c.n===+s.자리);
-    const dnLabel=cell?`${cell.dn}번`:(s.자리?`업로드${s.자리}번`:'미배정');
+    const cell=room?.cells.find(c=>c.n===+s.자리 && c.state==='active');
+    const isUnassigned=!cell; // 활성 좌석에 매칭 안 되면 미배정
+    const dnLabel=cell?`${cell.dn}번`:(s.자리?`업로드${s.자리}번`:'좌석없음');
     const gBadge=s.성별==='남'?'<span class="bdg bdg-m" style="font-size:9px">남</span>':s.성별==='여'?'<span class="bdg bdg-f" style="font-size:9px">여</span>':'';
     const tBadge=s.탐구?`<span class="bdg ${s.탐구.includes('사탐')?'bdg-sat':s.탐구.includes('과탐')?'bdg-gwt':'bdg-sag'}" style="font-size:9px">${s.탐구}</span>`:'';
-    return`<div class="li-item" style="cursor:pointer" onclick="goToSeat('${s.고사장||''}',${s.자리||0});closeModal('search-modal')">
+    const unaBadge=isUnassigned?'<span style="background:#fef3c7;color:#92400e;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid #fde68a">📍 미배정</span>':'';
+    const safeName=(s.이름||'').replace(/'/g,'');
+    const safeHak=(s.학번||'').replace(/'/g,'');
+    return`<div class="li-item" style="cursor:pointer${isUnassigned?';background:#fffbeb':''}" onclick="goToSeat('${s.고사장||''}',${s.자리||0},'${safeHak}','${safeName}',${isUnassigned});closeModal('search-modal')">
       <div style="display:flex;flex-direction:column;gap:4px;flex:1">
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:15px;font-weight:800;color:var(--ink)">${s.이름}</span>
-          ${gBadge}${tBadge}
+          ${gBadge}${tBadge}${unaBadge}
           <span style="font-family:'Noto Sans KR';font-size:12px;color:var(--sl400)">${s.학번}</span>
         </div>
-        <div style="display:flex;gap:12px;font-size:12px;color:var(--sl500)">
+        <div style="display:flex;gap:12px;font-size:12px;color:var(--sl500);flex-wrap:wrap">
           <span>반 <b style="color:var(--ink)">${s.반||'—'}</b></span>
           <span>반코드 <b style="color:var(--blue)">${s.반코드||'—'}</b></span>
           <span>강의실 <b style="color:var(--ink)">${s.고사장||'미배정'}</b></span>
           <span>좌석 <b style="color:var(--ink)">${dnLabel}</b></span>
         </div>
       </div>
-      ${s.고사장?'<span style="font-size:11px;color:var(--sl400)">→ 이동</span>':''}
+      <span style="font-size:11px;color:var(--sl400)">→ 이동</span>
     </div>`;
   }).join('');
 }
 
-function goToSeat(roomId,seatN){
-  if(!roomId) return;
-  switchRoom(roomId);
-  // 해당 강의실로 이동 후 잠시 후 해당 좌석 하이라이트
+function goToSeat(roomId,seatN,hak,name,isUnassigned){
+  // 미배정: 고사장이 있으면 그 강의실, 없으면 첫 강의실로 이동
+  let targetRoom=roomId;
+  if(isUnassigned && !targetRoom){
+    targetRoom=S.rooms[0]?.id;
+    if(!targetRoom){toast('이동할 강의실이 없습니다','err');return;}
+  }
+  if(!targetRoom) return;
+  switchRoom(targetRoom);
   setTimeout(()=>{
-    const room=getRoom(roomId);
+    if(isUnassigned){
+      // 미배정 학생: ua-chip 하이라이트 (학번으로 찾기)
+      const chips=document.querySelectorAll('.ua-chip');
+      let found=null;
+      chips.forEach(el=>{if(el.getAttribute('data-hak')===hak){found=el;}});
+      if(found){
+        found.scrollIntoView({behavior:'smooth',block:'center'});
+        found.style.outline='3px solid #f59e0b';
+        found.style.outlineOffset='2px';
+        found.style.boxShadow='0 0 0 6px rgba(245,158,11,.2)';
+        setTimeout(()=>{found.style.outline='';found.style.outlineOffset='';found.style.boxShadow='';},3000);
+        toast(`📍 ${name||'학생'} — 미배정 상태입니다`,'');
+      } else {
+        toast(`📍 ${name||'학생'} — 미배정 상태 (이 강의실 패널에 표시 안 됨)`,'');
+      }
+      return;
+    }
+    // 일반 배정 학생
+    const room=getRoom(targetRoom);
     const cell=room?.cells.find(c=>c.n===+seatN);
     if(!cell) return;
-    // 해당 dn으로 셀 찾아 스크롤
     const allCells=document.querySelectorAll('.sc');
     allCells.forEach(el=>{
       const sn=el.querySelector('.sn');
