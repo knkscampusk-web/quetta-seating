@@ -351,6 +351,11 @@ input,select,textarea{font-family:inherit;cursor:auto}
           <span class="ami-label">전체 다운로드</span>
           <span class="ami-desc">학생 명단 엑셀</span>
         </button>
+        <button class="admin-menu-item" onclick="closeAdminMenu();openEvalForm()">
+          <span class="ami-icon">📋</span>
+          <span class="ami-label">응시현황표 출력(평가원)</span>
+          <span class="ami-desc">반코드별 학급별</span>
+        </button>
         <button class="admin-menu-item" onclick="closeAdminMenu();openSettings()">
           <span class="ami-icon">⚙</span>
           <span class="ami-label">설정</span>
@@ -891,6 +896,7 @@ let S={
   ],
   snapshots:[],
   active:null,view:'student',swap:null,editStudentMode:false,
+  ngrEvalMeta:null, // 평가원 응시현황표 메타 정보 (학년도/차수/시도/학교명/학교번호)
 };
 let pendingExam='',_rzId=null,dragSrc=null,_editStuIdx=null,_uploadRoomId='all';
 let _statsExam=null,_pendingPrintAll=false; // _statsExam null이면 첫 진입시 자동 선택
@@ -1027,6 +1033,7 @@ function pushToFirebase(){
     _syncing=true; // 내가 저장 중 — onSnapshot이 덮어씌우지 않도록
     DOC.set({rooms:S.rooms,students:S.students,examTypes:S.examTypes,snapshots:S.snapshots,
       autoSnapFlags:S.autoSnapFlags||[],
+      ngrEvalMeta:S.ngrEvalMeta||null,
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
       .then(()=>{
         if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';}
@@ -1073,6 +1080,7 @@ function load(){
       else if(d.snapshots)    S.snapshots=[];
       if(d.autoSnapFlags)     S.autoSnapFlags=d.autoSnapFlags;
       else                    S.autoSnapFlags=S.autoSnapFlags||[];
+      if(d.ngrEvalMeta)       S.ngrEvalMeta=d.ngrEvalMeta;
       // 첫 접속 시(active 비었거나 유효하지 않을 때): 통계 탭
       if(!S.active||(S.active!=='__stats__'&&!S.rooms.find(r=>r.id===S.active))){
         S.active='__stats__';
@@ -2501,6 +2509,359 @@ function downloadAllExcel(){
   XLSX.writeFile(wb,`quetta_전체명단_${dt}.xlsx`);
   writeLog('전체 다운로드', `${S.students.length}명`);
   toast(`✅ 전체 ${S.students.length}명 엑셀 다운로드 완료`,'ok');
+}
+
+/* ═══ 응시현황표 출력(평가원) — 새 창으로 띄움 ═══ */
+function openEvalForm(){
+  // 1) 학생을 반코드별로 그룹화 (학번 1~99 정수만)
+  const byBanCode = {};
+  let totalCount = 0, validCount = 0, skipped = 0;
+  S.students.forEach(s => {
+    totalCount++;
+    const code = (s.반코드 || '').trim();
+    if(!code){ skipped++; return; }
+    const hakStr = String(s.학번 || '').trim();
+    const hakNum = parseInt(hakStr, 10);
+    if(isNaN(hakNum) || hakNum < 1 || hakNum > 99){ skipped++; return; }
+    if(!byBanCode[code]) byBanCode[code] = [];
+    byBanCode[code].push({ 학번: hakNum, 이름: (s.이름 || '').trim() });
+  });
+  validCount = totalCount - skipped;
+  // 중복 학번 정리 (같은 반코드 안에서 같은 학번 있으면 마지막 것 유지)
+  Object.keys(byBanCode).forEach(code => {
+    const map = new Map();
+    byBanCode[code].forEach(s => map.set(s.학번, s));
+    byBanCode[code] = [...map.values()].sort((a,b) => a.학번 - b.학번);
+  });
+  if(!Object.keys(byBanCode).length){
+    alert('표시할 학생이 없습니다.\n학생에 반코드가 있고, 학번이 1~99 정수여야 합니다.');
+    return;
+  }
+  // 2) 메타 기본값 (저장된 값이 있으면 그걸, 없으면 현재 연도 기반)
+  const defaultMeta = {
+    year: String(new Date().getFullYear() + 1),
+    month: '', sido: '', school: '', schoolNo: '',
+  };
+  const meta = Object.assign({}, defaultMeta, S.ngrEvalMeta || {});
+  // 3) 새 창 열기
+  const w = window.open('', 'quetta-eval-form', 'width=920,height=900,scrollbars=yes,resizable=yes');
+  if(!w){ alert('팝업이 차단되었습니다. 브라우저에서 이 사이트의 팝업을 허용해주세요.'); return; }
+  // 4) 데이터/저장 콜백을 새 창에 주입
+  w.QUETTA_DATA = { byBanCode, meta, validCount, totalCount };
+  w.QUETTA_SAVE_META = function(newMeta){
+    S.ngrEvalMeta = newMeta;
+    saveAll();
+  };
+  // 5) HTML 주입
+  w.document.open();
+  w.document.write(_evalFormHTML());
+  w.document.close();
+  writeLog('응시현황표 열기', `반코드 ${Object.keys(byBanCode).length}개 · ${validCount}명 매칭`);
+}
+
+// 새 창에 띄울 응시현황표 HTML 템플릿 (큰 문자열)
+function _evalFormHTML(){
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>학급별 응시 현황표(평가원)</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, 'Malgun Gothic', 'Noto Sans KR', sans-serif; background: #e2e8f0; color: #0b1120; }
+.controls { background: #fff; padding: 14px 20px; border-bottom: 1px solid #cbd5e1; box-shadow: 0 2px 6px rgba(0,0,0,.05); position: sticky; top: 0; z-index: 10; }
+.controls-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.controls-row:last-child { margin-bottom: 0; }
+.controls label { font-size: 11px; font-weight: 700; color: #475569; display: flex; flex-direction: column; gap: 3px; }
+.controls input, .controls select { font-family: inherit; font-size: 13px; padding: 6px 9px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #0b1120; }
+.controls input:focus, .controls select:focus { outline: none; border-color: #0891b2; box-shadow: 0 0 0 2px rgba(8,145,178,.15); }
+.controls .btn { padding: 8px 16px; border: none; border-radius: 6px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.btn-print { background: #0891b2; color: #fff; }
+.btn-print:hover { background: #0e7490; }
+.btn-all { background: #15803d; color: #fff; }
+.btn-all:hover { background: #166534; }
+.controls .info { font-size: 11px; color: #64748b; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; }
+#pages { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.a4-page { width: 210mm; height: 297mm; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,.12); padding: 9mm 11mm 8mm; position: relative; overflow: hidden; color: #000; }
+@media screen { .a4-page { zoom: 0.85; } }
+.pg-attach { font-size: 9pt; margin-bottom: 1mm; }
+.pg-title { text-align: center; margin-bottom: 4mm; }
+.pg-title .yr { font-size: 14pt; font-weight: 700; letter-spacing: -0.3pt; }
+.pg-title .h1 { font-size: 19pt; font-weight: 800; margin-top: 1mm; letter-spacing: -0.3pt; }
+.meta-table { border-collapse: collapse; width: 100%; margin-bottom: 4mm; font-size: 11pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.meta-table th, .meta-table td { border: 0.8pt solid #000; text-align: center; vertical-align: middle; padding: 0; }
+.meta-table thead th { height: 9mm; font-weight: 700; background: #fff; }
+.meta-table tbody td { height: 13mm; }
+.meta-table .col-sido { width: 11%; }
+.meta-table .col-school { width: 23%; }
+.meta-table .col-schoolno { width: 16%; }
+.meta-table .col-ban { width: 10%; }
+.meta-table .col-teacher { width: 40%; }
+.meta-table .teacher-stamp { text-align: right; padding-right: 12mm; font-size: 11pt; }
+.notice { font-size: 10pt; margin-bottom: 3mm; line-height: 1.7; }
+.notice .nt { font-weight: 700; margin-bottom: 0.5mm; }
+.main-table { border-collapse: collapse; width: 100%; font-size: 10pt; table-layout: fixed; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.main-table th, .main-table td { border: 0.6pt solid #000; text-align: center; vertical-align: middle; padding: 0; }
+.main-table thead th { font-weight: 700; background: #d6d6d6; height: 5mm; font-size: 9.5pt; }
+.main-table tbody td { height: 6mm; font-size: 10pt; }
+.main-table .gap { width: 2mm; border: none !important; background: transparent !important; }
+.main-table .col-no { width: 4.5%; }
+.main-table .col-name { width: 11%; }
+.main-table .col-1 { width: 4.5%; }
+.main-table .col-2 { width: 4.5%; }
+.main-table .col-3 { width: 4.5%; }
+.main-table .col-han { width: 6.5%; }
+.main-table .col-tam { width: 5%; }
+.main-table .col-5 { width: 4.5%; }
+.toggle-cell { cursor: pointer; user-select: none; font-weight: 700; font-size: 11pt; }
+.toggle-cell:hover { background: #fef3c7 !important; }
+.main-table tbody tr:nth-child(10n+6) td,
+.main-table tbody tr:nth-child(10n+7) td,
+.main-table tbody tr:nth-child(10n+8) td,
+.main-table tbody tr:nth-child(10n+9) td,
+.main-table tbody tr:nth-child(10n+10) td { background: #d6d6d6; }
+.main-table tbody tr td.gap { background: transparent !important; }
+@media print {
+  body { background: #fff; }
+  .controls { display: none !important; }
+  #pages { padding: 0; gap: 0; }
+  .a4-page { width: 210mm; height: 297mm; box-shadow: none; page-break-after: always; zoom: 1 !important; margin: 0 !important; }
+  .a4-page:last-child { page-break-after: auto; }
+  .toggle-cell:hover { background: transparent; }
+  @page { size: A4 portrait; margin: 0; }
+}
+</style>
+</head>
+<body>
+<div class="controls">
+  <div class="controls-row">
+    <label>학년도 <input type="number" id="meta-year" min="2020" max="2099" style="width:80px"></label>
+    <label>차수(○월) <input type="text" id="meta-month" placeholder="예: 6월" style="width:70px"></label>
+    <label>시·도 <input type="text" id="meta-sido" placeholder="예: 서울" style="width:80px"></label>
+    <label>학교(학원)명 <input type="text" id="meta-school" placeholder="학원명" style="width:180px"></label>
+    <label>학교(학원) 번호 <input type="text" id="meta-schoolno" placeholder="번호" style="width:110px"></label>
+  </div>
+  <div class="controls-row">
+    <label>반 코드 <select id="ban-select" style="width:180px"></select></label>
+    <button class="btn btn-print" onclick="doPrint()">🖨 인쇄 (현재 반)</button>
+    <button class="btn btn-all" onclick="printAllBans()">🖨 전체 반 일괄 인쇄</button>
+    <span class="info" id="info-stat">반을 선택하세요</span>
+  </div>
+</div>
+<div id="pages"></div>
+<script>
+const DATA = window.QUETTA_DATA || { byBanCode:{}, meta:{}, validCount:0, totalCount:0 };
+const SAVE_META = window.QUETTA_SAVE_META || function(){};
+let CHECKED5 = {};
+let CURRENT_BAN = null;
+
+function init(){
+  // 메타 입력 필드 초기값
+  document.getElementById('meta-year').value = DATA.meta.year || '';
+  document.getElementById('meta-month').value = DATA.meta.month || '';
+  document.getElementById('meta-sido').value = DATA.meta.sido || '';
+  document.getElementById('meta-school').value = DATA.meta.school || '';
+  document.getElementById('meta-schoolno').value = DATA.meta.schoolNo || '';
+  // 메타 변경 시 본 앱에 저장 + 화면 갱신 (debounce)
+  let saveTimer = null;
+  ['meta-year','meta-month','meta-sido','meta-school','meta-schoolno'].forEach(id => {
+    document.getElementById(id).oninput = () => {
+      render();
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        try {
+          SAVE_META({
+            year: document.getElementById('meta-year').value,
+            month: document.getElementById('meta-month').value,
+            sido: document.getElementById('meta-sido').value,
+            school: document.getElementById('meta-school').value,
+            schoolNo: document.getElementById('meta-schoolno').value,
+          });
+        } catch(e) { console.warn('메타 저장 실패:', e); }
+      }, 800);
+    };
+  });
+  // 반 드롭다운
+  const sel = document.getElementById('ban-select');
+  const codes = Object.keys(DATA.byBanCode).sort();
+  sel.innerHTML = '<option value="">-- 반 선택 --</option>' +
+    codes.map(k => '<option value="' + k + '">' + k + ' (' + DATA.byBanCode[k].length + '명)</option>').join('');
+  sel.onchange = e => { CURRENT_BAN = e.target.value; render(); };
+  render();
+}
+
+function toggle5(banCode, hak){
+  const k = banCode + ':' + hak;
+  CHECKED5[k] = !CHECKED5[k];
+  const el = document.querySelector('[data-toggle="' + k + '"]');
+  if(el) el.textContent = CHECKED5[k] ? '' : 'X';
+}
+function is5Blank(banCode, hak){ return !!CHECKED5[banCode + ':' + hak]; }
+
+function render(){
+  const pages = document.getElementById('pages');
+  const info = document.getElementById('info-stat');
+  pages.innerHTML = '';
+  if(!CURRENT_BAN){
+    info.textContent = '반을 선택하세요 · 매칭 ' + DATA.validCount + '/' + DATA.totalCount + '명';
+    info.style.background = '#f1f5f9';
+    info.style.color = '#64748b';
+    return;
+  }
+  const students = DATA.byBanCode[CURRENT_BAN] || [];
+  const maxHak = students.length ? Math.max.apply(null, students.map(s=>s.학번)) : 0;
+  const needPage2 = maxHak > 60;
+  info.textContent = CURRENT_BAN + '반 · ' + students.length + '명 · 최대학번 ' + maxHak + ' · ' + (needPage2 ? '2페이지' : '1페이지');
+  info.style.background = '#dcfce7';
+  info.style.color = '#166534';
+  const nameByHak = {};
+  students.forEach(s => { nameByHak[s.학번] = s.이름; });
+  pages.appendChild(buildPage(1, 60, nameByHak));
+  if(needPage2) pages.appendChild(buildPage(61, 99, nameByHak));
+}
+
+function getMeta(){
+  return {
+    year: document.getElementById('meta-year').value || '____',
+    month: document.getElementById('meta-month').value || '__',
+    sido: document.getElementById('meta-sido').value || '',
+    school: document.getElementById('meta-school').value || '',
+    schoolNo: document.getElementById('meta-schoolno').value || '',
+  };
+}
+
+function buildPage(startNo, endNo, nameByHak){
+  const meta = getMeta();
+  const page = document.createElement('div');
+  page.className = 'a4-page';
+  const half = 30;
+  const leftStart = startNo, rightStart = startNo + half, rightEnd = endNo;
+  let rowsHTML = '';
+  for(let i=0; i<half; i++){
+    const lNo = leftStart + i;
+    const rNo = rightStart + i;
+    const leftCells = rowCells(lNo, nameByHak, CURRENT_BAN);
+    const rightCells = rNo <= rightEnd ? rowCells(rNo, nameByHak, CURRENT_BAN) : emptyHalfCells();
+    rowsHTML += '<tr>' + leftCells + '<td class="gap"></td>' + rightCells + '</tr>';
+  }
+  page.innerHTML =
+    '<div class="pg-attach">&lt;붙임5&gt;</div>' +
+    '<div class="pg-title">' +
+      '<div class="yr">' + esc(meta.year) + '학년도 대학수학능력시험 ' + esc(meta.month) + ' 모의평가</div>' +
+      '<div class="h1">학급별 응시 현황표(답안지 상자에 동봉)</div>' +
+    '</div>' +
+    '<table class="meta-table">' +
+      '<thead><tr>' +
+        '<th class="col-sido">시·도</th>' +
+        '<th class="col-school">학교(학원)명</th>' +
+        '<th class="col-schoolno">학교(학원) 번호</th>' +
+        '<th class="col-ban">반</th>' +
+        '<th class="col-teacher">담임교사</th>' +
+      '</tr></thead>' +
+      '<tbody><tr>' +
+        '<td>' + esc(meta.sido) + '</td>' +
+        '<td>' + esc(meta.school) + '</td>' +
+        '<td>' + esc(meta.schoolNo) + '</td>' +
+        '<td>' + esc(CURRENT_BAN) + '</td>' +
+        '<td class="teacher-stamp">(인)</td>' +
+      '</tr></tbody>' +
+    '</table>' +
+    '<div class="notice">' +
+      '<div class="nt">&lt; 유의사항 &gt;</div>' +
+      '<div>※ 교시별 미선택자와 결시자는 해당 교시에 "X" 표기</div>' +
+      '<div>※ 전체 교시 미응시자는 모든 교시에 "X" 표기</div>' +
+      '<div>※ 본 학급별 응시현황표는 학교(학원)별로 묶어서 회송용 답안지 상자 맨 위에 넣어 함께 포장</div>' +
+    '</div>' +
+    '<table class="main-table">' +
+      '<thead>' +
+        '<tr>' +
+          '<th rowspan="3" class="col-no">번호</th>' +
+          '<th rowspan="3" class="col-name">성명</th>' +
+          '<th colspan="6">교시별 미선택(결시) 현황</th>' +
+          '<th class="gap" rowspan="3"></th>' +
+          '<th rowspan="3" class="col-no">번호</th>' +
+          '<th rowspan="3" class="col-name">성명</th>' +
+          '<th colspan="6">교시별 미선택(결시) 현황</th>' +
+        '</tr>' +
+        '<tr>' +
+          '<th rowspan="2" class="col-1">1</th>' +
+          '<th rowspan="2" class="col-2">2</th>' +
+          '<th rowspan="2" class="col-3">3</th>' +
+          '<th colspan="2">4</th>' +
+          '<th rowspan="2" class="col-5">5</th>' +
+          '<th rowspan="2" class="col-1">1</th>' +
+          '<th rowspan="2" class="col-2">2</th>' +
+          '<th rowspan="2" class="col-3">3</th>' +
+          '<th colspan="2">4</th>' +
+          '<th rowspan="2" class="col-5">5</th>' +
+        '</tr>' +
+        '<tr>' +
+          '<th class="col-han">한국사</th>' +
+          '<th class="col-tam">탐구</th>' +
+          '<th class="col-han">한국사</th>' +
+          '<th class="col-tam">탐구</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody>' + rowsHTML + '</tbody>' +
+    '</table>';
+  return page;
+}
+
+function rowCells(no, nameByHak, banCode){
+  const name = nameByHak[no] || '';
+  if(!name){
+    return '<td class="col-no">' + no + '</td><td class="col-name"></td>' +
+           '<td class="col-1"></td><td class="col-2"></td><td class="col-3"></td>' +
+           '<td class="col-han"></td><td class="col-tam"></td><td class="col-5"></td>';
+  }
+  const k = banCode + ':' + no;
+  const v5 = is5Blank(banCode, no) ? '' : 'X';
+  return '<td class="col-no">' + no + '</td>' +
+         '<td class="col-name">' + esc(name) + '</td>' +
+         '<td class="col-1"></td><td class="col-2"></td><td class="col-3"></td>' +
+         '<td class="col-han"></td><td class="col-tam"></td>' +
+         '<td class="col-5 toggle-cell" data-toggle="' + k + '" onclick="toggle5(\\''+banCode+'\\','+no+')">' + v5 + '</td>';
+}
+function emptyHalfCells(){
+  return '<td class="col-no"></td><td class="col-name"></td><td></td><td></td><td></td><td></td><td></td><td></td>';
+}
+function esc(s){
+  return String(s == null ? '' : s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+}
+function doPrint(){
+  if(!CURRENT_BAN){ alert('반을 먼저 선택하세요'); return; }
+  window.print();
+}
+function printAllBans(){
+  const codes = Object.keys(DATA.byBanCode).filter(k => DATA.byBanCode[k] && DATA.byBanCode[k].length > 0).sort();
+  if(!codes.length){ alert('인쇄할 데이터가 없습니다'); return; }
+  if(!confirm('총 ' + codes.length + '개 반의 응시현황표를 일괄 인쇄합니다.\\n계속하시겠습니까?')) return;
+  const original = CURRENT_BAN;
+  const pages = document.getElementById('pages');
+  pages.innerHTML = '';
+  codes.forEach(code => {
+    CURRENT_BAN = code;
+    const students = DATA.byBanCode[code];
+    const maxHak = Math.max.apply(null, students.map(s=>s.학번));
+    const needPage2 = maxHak > 60;
+    const nameByHak = {};
+    students.forEach(s => { nameByHak[s.학번] = s.이름; });
+    pages.appendChild(buildPage(1, 60, nameByHak));
+    if(needPage2) pages.appendChild(buildPage(61, 99, nameByHak));
+  });
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      CURRENT_BAN = original;
+      document.getElementById('ban-select').value = original || '';
+      render();
+    }, 300);
+  }, 100);
+}
+init();
+<\/script>
+</body>
+</html>`;
 }
 
 function downloadSnapExcel(id){
