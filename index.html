@@ -1401,7 +1401,8 @@ function renderGrid(room,isProctor){
     if(cell.state==='blocked'){
       html+=`<div class="sc blocked" style="width:${seatW}px;min-height:72px"><div class="sn-wrap"><span></span><span class="sn">${cell.dn}</span></div><div class="s-blocked-lbl">미사용</div></div>`;return;
     }
-    const stu=seatStu(room.id,cell.n);
+    // empty 모드(시행일 지남)면 학생 표시 X — 빈 좌석
+    const stu = (ctx.mode==='empty') ? null : seatStu(room.id,cell.n);
     let cls=stu?(stu.성별==='남'?'male':stu.성별==='여'?'female':''):'';
     if(stu) cls+=' has-student';
     let inner=`<div class="sn-wrap"><span class="s-ban">${stu?stu.반코드||'':''}</span><span class="sn">${cell.dn}</span></div>`;
