@@ -270,12 +270,6 @@ input,select,textarea{font-family:inherit;cursor:auto}
   body.pp .cc-bar{display:flex!important}
   body.pp .info-bar{display:flex!important}
 }
-/* preview 모드: 다음 모의고사 미리보기 — 좌석 편집 금지 */
-.preview-readonly{position:relative}
-.preview-readonly .sc,
-.preview-readonly .ua-chip{pointer-events:none!important}
-.preview-readonly .grid-wrap{filter:saturate(.85)}
-.preview-readonly::before{content:'📅 예정 명단 미리보기 (편집 불가)';position:absolute;top:10px;right:14px;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;pointer-events:none;border:1px solid #fde68a;z-index:5}
 </style>
 </head>
 <body>
@@ -1313,98 +1307,80 @@ function refreshExamDD(room){
 }
 
 /* ═══ 강의실 표시 컨텍스트 결정 (학생용/시감자용에서만 사용) ═══ */
-// 시행일 지난 모의고사면 명단 숨기고, 10일 이내 다음 모의고사 스냅샷이 있으면 미리보기
+// 시행일이 지난 모의고사면 좌석은 그대로 보여주되 학생 명단만 비움 (빈 좌석 상태)
+// 다음 모의고사 정보를 안내 배너로 알려줌
 function resolveDisplayContext(room){
   const today=new Date();today.setHours(0,0,0,0);
   const currentExam=room.examType?S.examTypes.find(et=>et.name===room.examType):null;
   // 모의고사 미설정 또는 날짜 없음 → 현재 데이터 그대로
   if(!currentExam||!currentExam.date){
-    return {mode:'current', room, stus:roomStu(room.id)};
+    return {mode:'current', stus:roomStu(room.id)};
   }
   const examDate=new Date(currentExam.date);examDate.setHours(0,0,0,0);
   // 시행일이 오늘 이후 → 현재 데이터 그대로
   if(examDate>=today){
-    return {mode:'current', room, stus:roomStu(room.id)};
+    return {mode:'current', stus:roomStu(room.id)};
   }
-  // 시행일이 지남 → 미래 10일 이내 모의고사 찾기
-  const tenDaysLater=new Date(today);tenDaysLater.setDate(tenDaysLater.getDate()+10);
+  // 시행일이 지남 → 빈 좌석 + 다음 모의고사 안내
+  // 미래 14일(2주) 이내 모의고사 찾기
+  const twoWeeksLater=new Date(today);twoWeeksLater.setDate(twoWeeksLater.getDate()+14);
   const upcoming=S.examTypes.filter(et=>{
     if(!et.date) return false;
     const d=new Date(et.date);d.setHours(0,0,0,0);
-    return d>=today && d<=tenDaysLater;
+    return d>=today && d<=twoWeeksLater;
   }).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
-  if(!upcoming){
-    return {mode:'past', room, stus:[], pastExam:currentExam};
+  // 다음 모의고사 스냅샷 존재 여부 (안내에 활용)
+  let upcomingSnap=null;
+  if(upcoming){
+    upcomingSnap=S.snapshots.find(s=>
+      s.name===upcoming.name || s.name===`${upcoming.name} (자동저장 ${upcoming.date})`
+    );
   }
-  // 미래 모의고사의 스냅샷 찾기 (이름 일치 또는 자동저장본)
-  const matchSnap=S.snapshots.find(s=>
-    s.name===upcoming.name || s.name===`${upcoming.name} (자동저장 ${upcoming.date})`
-  );
-  if(matchSnap){
-    const snapRoom=matchSnap.rooms.find(r=>r.id===room.id)||matchSnap.rooms.find(r=>r.name===room.name);
-    if(snapRoom){
-      const validNs=new Set(snapRoom.cells.filter(c=>c.state==='active').map(c=>c.n));
-      const stus=matchSnap.students.filter(s=>s.고사장===snapRoom.id && validNs.has(+s.자리));
-      return {
-        mode:'preview', room:snapRoom, stus,
-        upcomingExam:upcoming, pastExam:currentExam, snapName:matchSnap.name,
-      };
-    }
-  }
-  // 스냅샷 없음 또는 강의실 매칭 실패
-  return {mode:'past', room, stus:[], pastExam:currentExam, upcomingExam:upcoming};
+  return {
+    mode:'empty',
+    stus:[], // 빈 좌석으로 표시
+    pastExam:currentExam,
+    upcomingExam:upcoming,
+    upcomingSnap, // 스냅샷 존재 여부 (안내 메시지 분기용)
+  };
 }
 
 /* ═══ GRID ═══ */
 function renderGrid(room,isProctor){
   // ▼ 시행일 지난 강의실 처리 (학생용/시감자용에서만 — 배열편집 제외)
+  // empty 모드: 좌석 구조는 그대로, 학생 명단만 빔. 사용자가 [지난배치 불러오기]로 채울 수 있음
   const ctx=resolveDisplayContext(room);
-  if(ctx.mode==='past'){
-    document.getElementById('main').innerHTML=`
-      <div style="text-align:center;padding:60px 30px;color:var(--sl500);max-width:560px;margin:0 auto">
-        <div style="font-size:48px;margin-bottom:14px">📅</div>
-        <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:6px">
-          "${ctx.pastExam.name}" 시행이 종료되었습니다
-        </div>
-        <div style="font-size:12px;color:var(--sl400);margin-bottom:24px">시행일: ${ctx.pastExam.date}</div>
-        ${ctx.upcomingExam
-          ?`<div style="font-size:13px;color:var(--ink);background:#fffbeb;padding:14px 20px;border-radius:10px;border:1px solid #fde68a;display:inline-block;text-align:left">
-              <div style="font-weight:700;margin-bottom:4px">📅 예정: ${ctx.upcomingExam.name}</div>
-              <div style="font-size:11px;color:var(--sl500)">시행일 ${ctx.upcomingExam.date}</div>
-              <div style="font-size:11px;color:#92400e;margin-top:6px">⚠ 이 모의고사의 좌석 배치가 아직 저장되지 않았습니다</div>
-            </div>`
-          :`<div style="font-size:12px;color:var(--sl400);background:var(--sl50);padding:14px 18px;border-radius:10px;border:1px solid var(--sl200);display:inline-block">
-              앞으로 10일 이내 예정된 모의고사가 없습니다.<br>
-              ${_adminMode?'⚙ 설정 → 모의고사 목록에서 다음 시험을 추가하세요.':'관리자에게 다음 시험 등록을 요청하세요.'}
-            </div>`
-        }
-        <div style="margin-top:24px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-          <button class="btn btn-sec btn-sm" onclick="openSnapViewer()">📚 지난배치 조회</button>
-          ${_adminMode?'<button class="btn btn-sec btn-sm" onclick="openSaveExamModal()">💾 다른 모의고사로 변경</button>':''}
-        </div>
+  let emptyBanner='';
+  let useEmptyStus=null;
+  if(ctx.mode==='empty'){
+    const ue=ctx.upcomingExam;
+    const hasSnap=!!ctx.upcomingSnap;
+    let bannerBody='';
+    if(ue && hasSnap){
+      bannerBody=`<div style="font-size:12px;font-weight:700;color:#1e3a8a">"${ctx.pastExam.name}" 시행 종료 → 다음: <b>${ue.name}</b> (${ue.date})</div>
+        <div style="font-size:11px;color:#3b82f6;margin-top:2px">"${ctx.upcomingSnap.name}" 스냅샷이 있습니다 · 헤더의 <b>[📚 지난배치]</b>에서 명단을 가져올 수 있습니다</div>`;
+    } else if(ue){
+      bannerBody=`<div style="font-size:12px;font-weight:700;color:#1e3a8a">"${ctx.pastExam.name}" 시행 종료 → 다음: <b>${ue.name}</b> (${ue.date})</div>
+        <div style="font-size:11px;color:#3b82f6;margin-top:2px">아직 저장된 명단이 없습니다 · 새로 배치하거나 다른 지난배치를 불러오세요</div>`;
+    } else {
+      bannerBody=`<div style="font-size:12px;font-weight:700;color:#92400e">"${ctx.pastExam.name}" 시행 종료</div>
+        <div style="font-size:11px;color:#b45309;margin-top:2px">앞으로 2주 이내 예정된 모의고사가 없습니다 · ${_adminMode?'⚙ 설정에서 다음 모의고사를 등록하세요':'관리자에게 다음 시험 등록을 요청하세요'}</div>`;
+    }
+    const bannerBg=(ue?'linear-gradient(90deg,#eff6ff,#dbeafe)':'#fffbeb');
+    const bannerBorder=(ue?'#93c5fd':'#fde68a');
+    emptyBanner=`
+      <div style="background:${bannerBg};border:1px solid ${bannerBorder};border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:22px">📅</span>
+        <div style="flex:1;min-width:240px">${bannerBody}</div>
+        ${ue && hasSnap?`<button class="btn btn-pri btn-sm" onclick="openSnapViewer()" style="white-space:nowrap">📚 지난배치 불러오기</button>`:''}
       </div>`;
-    return;
-  }
-  // preview 모드면 room을 스냅샷의 강의실로 덮어쓰고 상단에 배너 표시
-  let previewBanner='';
-  let previewStus=null;
-  if(ctx.mode==='preview'){
-    previewBanner=`
-      <div style="background:linear-gradient(90deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:9px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:18px">📅</span>
-        <div style="flex:1;min-width:200px">
-          <div style="font-size:12px;font-weight:700;color:#1e3a8a">"${ctx.upcomingExam.name}" 예정 명단 (${ctx.upcomingExam.date})</div>
-          <div style="font-size:10px;color:#3b82f6;margin-top:2px">저장된 "${ctx.snapName}" 데이터를 표시 중 · 지난 "${ctx.pastExam.name}" 종료</div>
-        </div>
-      </div>`;
-    room=ctx.room; // 매개변수 덮어쓰기 — 이하 기존 코드는 그대로 동작
-    previewStus=ctx.stus;
+    useEmptyStus=ctx.stus; // []
   }
 
   const seatW=room.cols>10?74:82;
   const sorted=[...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
   const cells=isProctor?[...sorted].reverse():sorted;
-  const stus=previewStus||roomStu(room.id);
+  const stus=useEmptyStus||roomStu(room.id);
   const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
   const classMap={},classCnt={};
   stus.forEach(s=>{if(s.반&&s.반코드)classMap[s.반]=s.반코드;if(s.반)classCnt[s.반]=(classCnt[s.반]||0)+1;});
@@ -1465,10 +1441,9 @@ function renderGrid(room,isProctor){
     <label style="font-size:10px;font-weight:700;color:var(--sl400);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:4px">인쇄용 공지 (선택)</label>
     <textarea class="notice-input" placeholder="수험생 주의사항 등 인쇄 시 상단에 표시할 내용을 입력하세요..." onchange="saveNotice('${room.id}',this.value)">${room.notice||''}</textarea>
   </div>`;
-  const previewCls = ctx.mode==='preview' ? 'preview-readonly' : '';
   document.getElementById('main').innerHTML=`
-    ${previewBanner}
-    <div class="card ${previewCls}" id="printArea">
+    ${emptyBanner}
+    <div class="card" id="printArea">
       ${prtHdr}
       <div class="card-hd" data-noprint>
         <div class="card-title">${room.name}
