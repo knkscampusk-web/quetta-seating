@@ -270,6 +270,12 @@ input,select,textarea{font-family:inherit;cursor:auto}
   body.pp .cc-bar{display:flex!important}
   body.pp .info-bar{display:flex!important}
 }
+/* preview 모드: 다음 모의고사 미리보기 — 좌석 편집 금지 */
+.preview-readonly{position:relative}
+.preview-readonly .sc,
+.preview-readonly .ua-chip{pointer-events:none!important}
+.preview-readonly .grid-wrap{filter:saturate(.85)}
+.preview-readonly::before{content:'📅 예정 명단 미리보기 (편집 불가)';position:absolute;top:10px;right:14px;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;pointer-events:none;border:1px solid #fde68a;z-index:5}
 </style>
 </head>
 <body>
@@ -344,15 +350,14 @@ input,select,textarea{font-family:inherit;cursor:auto}
   </div>
   <div class="exam-row" id="exam-row">
     <span style="font-size:11px;font-weight:600;color:var(--sl500)">모의고사</span>
-    <select id="exam-dd" onchange="pendingExam=this.value"></select>
-    <button class="btn btn-green btn-sm" onclick="saveRoomExam()">저장</button>
+    <select id="exam-dd" disabled style="opacity:.85;cursor:default;background:#f8fafc"></select>
+    <button class="btn btn-green btn-sm" onclick="openSaveExamModal()">저장</button>
   </div>
   <button class="edit-mode-btn" id="edit-mode-btn" onclick="toggleEditStudentMode()">✎ 개별편집</button>
   <button class="btn btn-sec btn-sm" id="undo-btn" onclick="undoAction()" style="opacity:.4" disabled title="마지막 작업 취소 (개별편집 중 사용)">↩ 취소</button>
   <div class="bar-sep"></div>
   <span id="bar-stat"></span>
   <button class="btn btn-sec btn-sm" onclick="openUplModal(S.active)">📤 명단 업로드</button>
-  <button class="btn btn-sec btn-sm" onclick="openLoadRoomSnap()">🔄 지난 배치 불러오기</button>
   <button class="btn btn-sec btn-sm" onclick="doPrint()">🖨 인쇄</button>
   <div style="width:1px;height:18px;background:var(--sl200);margin:0 2px"></div>
   <span id="admin-print-btns" style="display:none;gap:5px;align-items:center">
@@ -700,17 +705,15 @@ input,select,textarea{font-family:inherit;cursor:auto}
   </div>
 </div>
 
-<!-- ══ LOAD ROOM SNAPSHOT (강의실 지난 배치 불러오기) ══ -->
-<div class="overlay" id="load-room-snap-modal" onclick="ovClose(event,'load-room-snap-modal')">
-  <div class="modal modal-lg" style="width:760px">
+<!-- ══ SAVE EXAM MODAL (모의고사로 저장 선택) ══ -->
+<div class="overlay" id="save-exam-modal" onclick="ovClose(event,'save-exam-modal')">
+  <div class="modal" style="width:520px">
     <div class="mhd">
-      <span class="mhd-title">🔄 지난 배치 불러오기</span>
-      <button class="btn btn-ghost" onclick="closeModal('load-room-snap-modal')">✕</button>
+      <span class="mhd-title">💾 모의고사로 저장</span>
+      <button class="btn btn-ghost" onclick="closeModal('save-exam-modal')">✕</button>
     </div>
     <div class="mbody">
-      <div id="lrs-step1"></div>
-      <div id="lrs-step2" style="display:none"></div>
-      <div id="lrs-step3" style="display:none"></div>
+      <div id="save-exam-body"></div>
     </div>
   </div>
 </div>
@@ -1309,12 +1312,99 @@ function refreshExamDD(room){
   pendingExam=room.examType||'';
 }
 
+/* ═══ 강의실 표시 컨텍스트 결정 (학생용/시감자용에서만 사용) ═══ */
+// 시행일 지난 모의고사면 명단 숨기고, 10일 이내 다음 모의고사 스냅샷이 있으면 미리보기
+function resolveDisplayContext(room){
+  const today=new Date();today.setHours(0,0,0,0);
+  const currentExam=room.examType?S.examTypes.find(et=>et.name===room.examType):null;
+  // 모의고사 미설정 또는 날짜 없음 → 현재 데이터 그대로
+  if(!currentExam||!currentExam.date){
+    return {mode:'current', room, stus:roomStu(room.id)};
+  }
+  const examDate=new Date(currentExam.date);examDate.setHours(0,0,0,0);
+  // 시행일이 오늘 이후 → 현재 데이터 그대로
+  if(examDate>=today){
+    return {mode:'current', room, stus:roomStu(room.id)};
+  }
+  // 시행일이 지남 → 미래 10일 이내 모의고사 찾기
+  const tenDaysLater=new Date(today);tenDaysLater.setDate(tenDaysLater.getDate()+10);
+  const upcoming=S.examTypes.filter(et=>{
+    if(!et.date) return false;
+    const d=new Date(et.date);d.setHours(0,0,0,0);
+    return d>=today && d<=tenDaysLater;
+  }).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
+  if(!upcoming){
+    return {mode:'past', room, stus:[], pastExam:currentExam};
+  }
+  // 미래 모의고사의 스냅샷 찾기 (이름 일치 또는 자동저장본)
+  const matchSnap=S.snapshots.find(s=>
+    s.name===upcoming.name || s.name===`${upcoming.name} (자동저장 ${upcoming.date})`
+  );
+  if(matchSnap){
+    const snapRoom=matchSnap.rooms.find(r=>r.id===room.id)||matchSnap.rooms.find(r=>r.name===room.name);
+    if(snapRoom){
+      const validNs=new Set(snapRoom.cells.filter(c=>c.state==='active').map(c=>c.n));
+      const stus=matchSnap.students.filter(s=>s.고사장===snapRoom.id && validNs.has(+s.자리));
+      return {
+        mode:'preview', room:snapRoom, stus,
+        upcomingExam:upcoming, pastExam:currentExam, snapName:matchSnap.name,
+      };
+    }
+  }
+  // 스냅샷 없음 또는 강의실 매칭 실패
+  return {mode:'past', room, stus:[], pastExam:currentExam, upcomingExam:upcoming};
+}
+
 /* ═══ GRID ═══ */
 function renderGrid(room,isProctor){
+  // ▼ 시행일 지난 강의실 처리 (학생용/시감자용에서만 — 배열편집 제외)
+  const ctx=resolveDisplayContext(room);
+  if(ctx.mode==='past'){
+    document.getElementById('main').innerHTML=`
+      <div style="text-align:center;padding:60px 30px;color:var(--sl500);max-width:560px;margin:0 auto">
+        <div style="font-size:48px;margin-bottom:14px">📅</div>
+        <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:6px">
+          "${ctx.pastExam.name}" 시행이 종료되었습니다
+        </div>
+        <div style="font-size:12px;color:var(--sl400);margin-bottom:24px">시행일: ${ctx.pastExam.date}</div>
+        ${ctx.upcomingExam
+          ?`<div style="font-size:13px;color:var(--ink);background:#fffbeb;padding:14px 20px;border-radius:10px;border:1px solid #fde68a;display:inline-block;text-align:left">
+              <div style="font-weight:700;margin-bottom:4px">📅 예정: ${ctx.upcomingExam.name}</div>
+              <div style="font-size:11px;color:var(--sl500)">시행일 ${ctx.upcomingExam.date}</div>
+              <div style="font-size:11px;color:#92400e;margin-top:6px">⚠ 이 모의고사의 좌석 배치가 아직 저장되지 않았습니다</div>
+            </div>`
+          :`<div style="font-size:12px;color:var(--sl400);background:var(--sl50);padding:14px 18px;border-radius:10px;border:1px solid var(--sl200);display:inline-block">
+              앞으로 10일 이내 예정된 모의고사가 없습니다.<br>
+              ${_adminMode?'⚙ 설정 → 모의고사 목록에서 다음 시험을 추가하세요.':'관리자에게 다음 시험 등록을 요청하세요.'}
+            </div>`
+        }
+        <div style="margin-top:24px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-sec btn-sm" onclick="openSnapViewer()">📚 지난배치 조회</button>
+          ${_adminMode?'<button class="btn btn-sec btn-sm" onclick="openSaveExamModal()">💾 다른 모의고사로 변경</button>':''}
+        </div>
+      </div>`;
+    return;
+  }
+  // preview 모드면 room을 스냅샷의 강의실로 덮어쓰고 상단에 배너 표시
+  let previewBanner='';
+  let previewStus=null;
+  if(ctx.mode==='preview'){
+    previewBanner=`
+      <div style="background:linear-gradient(90deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:9px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:18px">📅</span>
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:12px;font-weight:700;color:#1e3a8a">"${ctx.upcomingExam.name}" 예정 명단 (${ctx.upcomingExam.date})</div>
+          <div style="font-size:10px;color:#3b82f6;margin-top:2px">저장된 "${ctx.snapName}" 데이터를 표시 중 · 지난 "${ctx.pastExam.name}" 종료</div>
+        </div>
+      </div>`;
+    room=ctx.room; // 매개변수 덮어쓰기 — 이하 기존 코드는 그대로 동작
+    previewStus=ctx.stus;
+  }
+
   const seatW=room.cols>10?74:82;
   const sorted=[...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
   const cells=isProctor?[...sorted].reverse():sorted;
-  const stus=roomStu(room.id);
+  const stus=previewStus||roomStu(room.id);
   const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
   const classMap={},classCnt={};
   stus.forEach(s=>{if(s.반&&s.반코드)classMap[s.반]=s.반코드;if(s.반)classCnt[s.반]=(classCnt[s.반]||0)+1;});
@@ -1375,8 +1465,10 @@ function renderGrid(room,isProctor){
     <label style="font-size:10px;font-weight:700;color:var(--sl400);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:4px">인쇄용 공지 (선택)</label>
     <textarea class="notice-input" placeholder="수험생 주의사항 등 인쇄 시 상단에 표시할 내용을 입력하세요..." onchange="saveNotice('${room.id}',this.value)">${room.notice||''}</textarea>
   </div>`;
+  const previewCls = ctx.mode==='preview' ? 'preview-readonly' : '';
   document.getElementById('main').innerHTML=`
-    <div class="card" id="printArea">
+    ${previewBanner}
+    <div class="card ${previewCls}" id="printArea">
       ${prtHdr}
       <div class="card-hd" data-noprint>
         <div class="card-title">${room.name}
@@ -1734,6 +1826,71 @@ function saveRoomExam(){
   writeLog('모의고사 설정', `${room.name} → ${pendingExam}`);
 }
 
+/* ═══ 모의고사 저장 모달 (현재 강의실의 examType 설정) ═══ */
+function openSaveExamModal(){
+  const room=getRoom(S.active);
+  if(!room){toast('강의실이 선택되지 않았습니다','err');return;}
+  if(!S.examTypes?.length){
+    alert('등록된 모의고사가 없습니다.\n⚙ 설정 → 모의고사 목록에서 추가해주세요.');
+    return;
+  }
+  const body=document.getElementById('save-exam-body');
+  const currentName=room.examType||'';
+  body.innerHTML=`
+    <div style="font-size:12px;color:var(--sl500);margin-bottom:14px;line-height:1.6">
+      <b style="color:var(--ink)">"${room.name}"</b> 강의실의 현재 좌석 배치를<br>
+      어느 모의고사로 저장할지 선택하세요.
+    </div>
+    ${currentName?`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:9px 12px;margin-bottom:14px;font-size:12px;color:#1e3a8a">
+      현재 설정: <b>${currentName}</b>
+    </div>`:''}
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;padding:2px">
+      ${S.examTypes.map(et=>{
+        const isCur=et.name===currentName;
+        const otherRooms=S.rooms.filter(r=>r.id!==room.id && r.examType===et.name);
+        const conflictBadge=otherRooms.length?`<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;margin-left:6px">${otherRooms.map(r=>r.name).join(',')} 중복</span>`:'';
+        const dateStr=et.date?`<span style="color:var(--sl400);font-size:11px;margin-left:6px">${et.date}</span>`:'';
+        return`<button class="btn btn-sec" style="text-align:left;padding:11px 14px;justify-content:flex-start;${isCur?'background:#dcfce7;border-color:#86efac':''}"
+          onclick="saveExamAs('${et.name.replace(/'/g,'')}')">
+          <div style="flex:1">
+            <span style="font-weight:700;font-size:13px;color:var(--ink)">${et.name}</span>${dateStr}${conflictBadge}
+            ${isCur?'<span style="font-size:10px;color:#15803d;margin-left:8px">✓ 현재 설정</span>':''}
+          </div>
+        </button>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:12px;padding:8px 11px;background:#fffbeb;border-radius:7px;font-size:11px;color:#92400e;border:1px solid #fde68a;line-height:1.5">
+      💡 선택한 모의고사로 이 강의실의 배치가 저장됩니다. 변경 시 확인 다이얼로그가 추가로 표시됩니다.
+    </div>`;
+  openModal('save-exam-modal');
+}
+function saveExamAs(examName){
+  const room=getRoom(S.active);if(!room) return;
+  if(room.examType===examName){
+    closeModal('save-exam-modal');
+    toast('변경사항이 없습니다','');
+    return;
+  }
+  // 확인 다이얼로그 (기존 saveRoomExam과 동일한 검증)
+  const msgs=[];
+  if(room.examType && room.examType!==examName){
+    msgs.push(`• "${room.name}"의 모의고사를 [${room.examType}] → [${examName}]로 변경합니다.`);
+  }
+  const otherRooms=S.rooms.filter(r=>r.id!==room.id && r.examType===examName);
+  if(otherRooms.length){
+    msgs.push(`• 이미 다른 강의실(${otherRooms.map(r=>r.name).join(', ')})에 "${examName}"이(가) 설정되어 있습니다.`);
+  }
+  if(msgs.length){
+    if(!confirm(`⚠ 모의고사 저장 확인\n\n${msgs.join('\n\n')}\n\n계속 진행하시겠습니까?`)){return;}
+  }
+  room.examType=examName;
+  pendingExam=examName;
+  saveAll();renderMain();
+  closeModal('save-exam-modal');
+  toast(`${room.name}: "${examName}" 저장`,'ok');
+  writeLog('모의고사 설정', `${room.name} → ${examName}`);
+}
+
 /* ═══ MANUAL ADD STUDENT ═══ */
 function openAddStu(roomId,n){
   _addStuRoom=roomId;_addStuN=n;
@@ -2053,117 +2210,18 @@ function _execLoadSnap(id){
 }
 function removeSnap(id){S.snapshots=S.snapshots.filter(s=>s.id!==id);saveAll();renderSnapList();}
 
-/* ═══ 강의실 지난 배치 불러오기 (각 강의실 탭에서 사용) ═══ */
-let _lrsSnapId=null, _lrsSnapRoomId=null;
-function openLoadRoomSnap(){
-  if(S.active==='__stats__'){toast('강의실 탭에서만 사용 가능','err');return;}
-  const currentRoom=getRoom(S.active);
-  if(!currentRoom){toast('현재 강의실 없음','err');return;}
-  if(!S.snapshots?.length){toast('저장된 배치가 없습니다','err');return;}
-  _lrsSnapId=null;_lrsSnapRoomId=null;
-  renderLrsStep1();
-  openModal('load-room-snap-modal');
-}
-function renderLrsStep1(){
-  const s1=document.getElementById('lrs-step1');
-  const s2=document.getElementById('lrs-step2');
-  const s3=document.getElementById('lrs-step3');
-  s1.style.display='';s2.style.display='none';s3.style.display='none';
-  s1.innerHTML=`<div style="font-size:12px;color:var(--sl500);margin-bottom:12px">
-    <b style="color:var(--ink)">"${S.active}"</b> 강의실에 불러올 배치 데이터를 선택하세요.
-  </div>` + [...S.snapshots].reverse().map(sn=>{
-    const autoBadge=sn.autoSaved?'<span style="font-size:9px;background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:8px;margin-left:4px">자동저장</span>':'';
-    return`<div class="li-item" style="cursor:pointer" onclick="lrsSelectSnap('${sn.id}')">
-      <div style="flex:1">
-        <div class="li-name">${sn.name}${autoBadge}</div>
-        <div class="li-sub">${sn.date} · 학생 ${sn.students.length}명 · 강의실 ${sn.rooms.length}개</div>
-      </div>
-      <span style="font-size:11px;color:var(--sl400)">→ 선택</span>
-    </div>`;
-  }).join('');
-}
-function lrsSelectSnap(snapId){
-  _lrsSnapId=snapId;
-  const sn=S.snapshots.find(s=>s.id===snapId);if(!sn)return;
-  const s1=document.getElementById('lrs-step1');
-  const s2=document.getElementById('lrs-step2');
-  s1.style.display='none';s2.style.display='';
-  s2.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-    <button class="btn btn-sec btn-sm" onclick="renderLrsStep1()">← 뒤로</button>
-    <span style="font-weight:700">${sn.name}</span>
-    <span style="font-size:11px;color:var(--sl400)">${sn.date}</span>
-  </div>
-  <div style="font-size:12px;color:var(--sl500);margin-bottom:10px">
-    이 스냅샷에서 어느 강의실의 데이터를 가져올까요?
-  </div>` + sn.rooms.map(r=>{
-    const validNs=new Set(r.cells.filter(c=>c.state==='active').map(c=>c.n));
-    const cnt=sn.students.filter(s=>s.고사장===r.id && validNs.has(+s.자리)).length;
-    const sameName=r.id===S.active?'<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;margin-left:6px">같은 이름 강의실</span>':'';
-    return`<div class="li-item" style="cursor:pointer" onclick="lrsSelectRoom('${r.id}')">
-      <div style="flex:1">
-        <div class="li-name">${r.name}${sameName}</div>
-        <div class="li-sub">배정 ${cnt}명 · ${r.rows}×${r.cols}${r.examType?` · ${r.examType}`:''}</div>
-      </div>
-      <span style="font-size:11px;color:var(--sl400)">→ 선택</span>
-    </div>`;
-  }).join('');
-}
-function lrsSelectRoom(snapRoomId){
-  _lrsSnapRoomId=snapRoomId;
-  const sn=S.snapshots.find(s=>s.id===_lrsSnapId);if(!sn)return;
-  const snapRoom=sn.rooms.find(r=>r.id===snapRoomId);if(!snapRoom)return;
-  const validNs=new Set(snapRoom.cells.filter(c=>c.state==='active').map(c=>c.n));
-  const stusInSnap=sn.students.filter(s=>s.고사장===snapRoomId && validNs.has(+s.자리));
-  // 현재 S.students에 없는 학생들 (학번 기준)
-  const currentHaks=new Set(S.students.map(s=>s.학번));
-  const newStus=stusInSnap.filter(s=>!currentHaks.has(s.학번));
-
-  const s2=document.getElementById('lrs-step2');
-  const s3=document.getElementById('lrs-step3');
-  s2.style.display='none';s3.style.display='';
-  s3.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-    <button class="btn btn-sec btn-sm" onclick="lrsSelectSnap('${_lrsSnapId}')">← 뒤로</button>
-    <span style="font-weight:700">${sn.name} → ${snapRoom.name}</span>
-  </div>
-  <div style="background:var(--sl50);border:1px solid var(--sl200);border-radius:10px;padding:12px;margin-bottom:12px">
-    <div style="font-size:11px;color:var(--sl500);margin-bottom:6px">불러올 데이터 요약</div>
-    <div style="font-size:12px;color:var(--ink);line-height:1.7">
-      · 학생 ${stusInSnap.length}명 (활성 좌석 배정)<br>
-      · 좌석 구조: ${snapRoom.rows}행 × ${snapRoom.cols}열<br>
-      · 모의고사: ${snapRoom.examType||'(미설정)'}<br>
-      ${newStus.length?`· <span style="color:#c2410c;font-weight:700">현재 명단에 없는 학생 ${newStus.length}명 → 새로 추가</span>`:''}
-    </div>
-  </div>
-  <div style="margin-bottom:14px">
-    <div style="font-size:11px;font-weight:700;color:var(--sl500);margin-bottom:8px">불러오기 방식 선택</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn btn-sec" style="text-align:left;padding:11px 14px;justify-content:flex-start" onclick="lrsApply('students')">
-        <div>
-          <div style="font-weight:700;font-size:13px;color:var(--ink)">A) 학생만 교체</div>
-          <div style="font-size:11px;color:var(--sl400);margin-top:2px">현재 강의실의 좌석 구조는 그대로 두고, 그때 배정됐던 학생들만 같은 자리(n)에 배치</div>
-        </div>
-      </button>
-      <button class="btn btn-sec" style="text-align:left;padding:11px 14px;justify-content:flex-start" onclick="lrsApply('full')">
-        <div>
-          <div style="font-weight:700;font-size:13px;color:var(--ink)">B) 강의실 통째 복원</div>
-          <div style="font-size:11px;color:var(--sl400);margin-top:2px">좌석 구조(rows/cols/cells)·모의고사·공지·학생 모두 그때 그대로 복원</div>
-        </div>
-      </button>
-    </div>
-  </div>
-  <div style="padding:9px 11px;background:#fffbeb;border-radius:7px;font-size:11px;color:#92400e;border:1px solid #fde68a">
-    ⚠ 적용 후에는 메모리에만 반영됩니다. 결과를 확인하고 만족스러우면 헤더의 [💾 저장] 또는 모의고사 [저장] 버튼으로 Firebase에 저장하세요.<br>
-    저장하지 않고 새로고침하면 원래대로 돌아옵니다.
-  </div>`;
-}
-function lrsApply(mode){
+/* ═══ 지난배치 강의실별 불러오기 - 공통 적용 함수 ═══ */
+let _lrsSnapId=null, _lrsSnapRoomId=null, _lrsTargetRoomId=null;
+function lrsApply(mode, targetRoomId){
   const sn=S.snapshots.find(s=>s.id===_lrsSnapId);if(!sn){toast('스냅샷 없음','err');return;}
-  const snapRoom=sn.rooms.find(r=>r.id===_lrsSnapRoomId);if(!snapRoom){toast('강의실 없음','err');return;}
-  const curRoom=getRoom(S.active);if(!curRoom){toast('현재 강의실 없음','err');return;}
-  if(!confirm(`"${sn.name}"의 "${snapRoom.name}" 데이터를 현재 "${S.active}" 강의실에 ${mode==='full'?'통째로 복원':'학생만 교체'}합니다.\n\n계속하시겠습니까?`)) return;
+  const snapRoom=sn.rooms.find(r=>r.id===_lrsSnapRoomId);if(!snapRoom){toast('스냅샷 강의실 없음','err');return;}
+  const target=targetRoomId||_lrsTargetRoomId;
+  if(!target){toast('대상 강의실 선택 필요','err');return;}
+  const curRoom=getRoom(target);if(!curRoom){toast('대상 강의실 없음','err');return;}
+  if(!confirm(`"${sn.name}"의 "${snapRoom.name}" 데이터를 "${target}" 강의실에 ${mode==='full'?'통째로 복원':'학생만 교체'}합니다.\n\n계속하시겠습니까?`)) return;
   saveUndo();
-  // 1) 현재 강의실에 배정된 학생 제거 (학생 목록에서는 안 지움, 자리만 비움)
-  S.students.forEach(s=>{if(s.고사장===S.active){s.고사장='';s.자리=0;}});
+  // 1) 대상 강의실에 배정된 학생 제거 (학생 목록에서는 안 지움, 자리만 비움)
+  S.students.forEach(s=>{if(s.고사장===target){s.고사장='';s.자리=0;}});
   // 2) 스냅샷의 그 강의실에 있던 학생들을 처리
   const validNs=new Set(snapRoom.cells.filter(c=>c.state==='active').map(c=>c.n));
   const stusInSnap=sn.students.filter(s=>s.고사장===_lrsSnapRoomId && validNs.has(+s.자리));
@@ -2173,19 +2231,16 @@ function lrsApply(mode){
   stusInSnap.forEach(snapStu=>{
     const existing=currentByHak.get(snapStu.학번);
     if(existing){
-      // 기존 학생 → 자리 정보만 업데이트
-      existing.고사장=S.active;
+      existing.고사장=target;
       existing.자리=+snapStu.자리;
       existing._mismatch=false;
-      // 데이터도 함께 업데이트 (반/이름 등 변경되었을 수 있음)
       ['반','성별','이름','수학선택','탐구','반코드'].forEach(k=>{
         if(snapStu[k]!==undefined) existing[k]=snapStu[k];
       });
       updated++;
     } else {
-      // 새 학생 추가
       const newStu=JSON.parse(JSON.stringify(snapStu));
-      newStu.고사장=S.active;
+      newStu.고사장=target;
       newStu.자리=+snapStu.자리;
       newStu._i=S.students.length;
       newStu._mismatch=false;
@@ -2193,7 +2248,6 @@ function lrsApply(mode){
       added++;
     }
   });
-  // _i 재계산
   S.students.forEach((s,i)=>s._i=i);
   // 3) full 모드면 좌석 구조도 복원
   if(mode==='full'){
@@ -2203,13 +2257,15 @@ function lrsApply(mode){
     if(snapRoom.examType!==undefined) curRoom.examType=snapRoom.examType;
     if(snapRoom.notice!==undefined) curRoom.notice=snapRoom.notice;
   }
-  // 메모리만 갱신, 저장은 사용자 결정
+  // 적용 후 그 강의실로 이동
+  S.active=target;
   renderAll();
-  closeModal('load-room-snap-modal');
+  closeModal('snap-view-modal');
   const modeLabel=mode==='full'?'통째 복원':'학생만 교체';
   toast(`✅ ${modeLabel} — 신규 ${added}명, 갱신 ${updated}명. [💾 저장] 눌러서 확정하세요`,'ok');
-  writeLog('지난배치 불러오기', `"${sn.name}/${snapRoom.name}" → ${S.active} (${modeLabel}, +${added}/~${updated})`);
+  writeLog('지난배치 불러오기', `"${sn.name}/${snapRoom.name}" → ${target} (${modeLabel}, +${added}/~${updated})`);
 }
+function lrsApply_orig(mode){/* deprecated — replaced by lrsApply above */}
 
 /* ═══ SNAPSHOT VIEWER (지난배치 조회 — 헤더 버튼) ═══ */
 let _viewSnapId=null,_viewSnapRoom=null;
@@ -2299,13 +2355,65 @@ function renderSnapViewerDetail(snapId){
   const actualStus=stusInRoom.filter(s=>validNs.has(+s.자리));
   const m=actualStus.filter(s=>s.성별==='남').length;
   const f=actualStus.filter(s=>s.성별==='여').length;
-  const adminLoadBtn=_adminMode?`<button class="btn btn-sec btn-sm" style="margin-left:auto" onclick="if(confirm('현재 배치를 \\'${sn.name}\\'로 덮어쓰시겠습니까?')){closeModal('snap-view-modal');loadSnap('${snapId}');}">📥 현재로 불러오기</button>`:'';
+  // 관리자만: 전체 통째 불러오기 (S.rooms 자체를 통째로 교체 - loadSnap)
+  const adminFullLoadBtn=_adminMode?`<button class="btn btn-sec btn-sm" style="margin-left:auto;background:#fef2f2;color:#991b1b;border-color:#fecaca" onclick="if(confirm('⚠ 전체 강의실/학생 데이터를 \\'${sn.name}\\'로 덮어씁니다.\\n현재 모든 데이터가 사라집니다. 계속하시겠습니까?')){closeModal('snap-view-modal');loadSnap('${snapId}');}">⚠ 전체 통째 불러오기 (관리자)</button>`:'';
+  // 부분 불러오기용 대상 강의실 결정
+  const targetRoomId = (S.active && S.active!=='__stats__' && getRoom(S.active)) ? S.active : null;
+  // 새 학생 수 계산
+  const currentHaks=new Set(S.students.map(s=>s.학번));
+  const newStus=stusInRoom.filter(s=>validNs.has(+s.자리)&&!currentHaks.has(s.학번));
+  // 대상 강의실 선택 UI
+  const allRoomIds=S.rooms.map(r=>r.id);
+  let targetUI='';
+  if(targetRoomId){
+    targetUI=`<span><b style="color:var(--ink)">"${targetRoomId}"</b> 강의실에 적용 <span style="font-size:10px;color:var(--sl400)">(다른 강의실에 적용하려면 그 탭으로 이동 후 다시 [📚 지난배치]를 여세요)</span></span>`;
+    _lrsTargetRoomId=targetRoomId;
+  } else if(allRoomIds.length){
+    // 통계 탭에서 열린 경우: select로 강의실 선택
+    const sameNameRoom = allRoomIds.includes(room.id) ? room.id : allRoomIds[0];
+    _lrsTargetRoomId = _lrsTargetRoomId && allRoomIds.includes(_lrsTargetRoomId) ? _lrsTargetRoomId : sameNameRoom;
+    targetUI=`<select id="lrs-target-sel" onchange="_lrsTargetRoomId=this.value" style="padding:4px 8px;border-radius:5px;border:1px solid var(--sl300);font-size:12px;font-family:inherit">
+      ${allRoomIds.map(rid=>`<option value="${rid}" ${rid===_lrsTargetRoomId?'selected':''}>${rid}</option>`).join('')}
+    </select> 강의실에 적용`;
+  } else {
+    targetUI='<span style="color:#991b1b">⚠ 적용 가능한 강의실 없음</span>';
+  }
+  // 부분 불러오기 패널
+  _lrsSnapId=snapId; _lrsSnapRoomId=room.id;
+  const partialPanel = allRoomIds.length ? `
+    <div style="margin-top:14px;border-top:1px solid var(--sl200);padding-top:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--sl500);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">📥 이 강의실 배치를 현재로 불러오기</div>
+      <div style="background:var(--sl50);border:1px solid var(--sl200);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;line-height:1.7">
+        <div style="font-size:10px;color:var(--sl500);font-weight:700;margin-bottom:4px;letter-spacing:.04em">불러올 데이터</div>
+        · 학생 ${actualStus.length}명 (활성 좌석 배정)<br>
+        · 좌석 구조: ${room.rows}행 × ${room.cols}열<br>
+        · 모의고사: ${room.examType||'(미설정)'}<br>
+        ${newStus.length?`· <span style="color:#c2410c;font-weight:700">현재 명단에 없는 학생 ${newStus.length}명 → 새로 추가</span>`:''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:12px;flex-wrap:wrap;background:#eff6ff;padding:8px 11px;border-radius:7px;border:1px solid #bfdbfe">
+        <span style="font-size:11px;color:#1e3a8a;font-weight:600">대상:</span>
+        ${targetUI}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sec btn-sm" style="flex:1;min-width:140px;text-align:left;padding:9px 12px" onclick="lrsApply('students')">
+          <div style="font-weight:700;font-size:12px">A) 학생만 교체</div>
+          <div style="font-size:10px;color:var(--sl400);margin-top:2px">좌석 구조 유지, 학생만 같은 자리(업로드번호)에 배치</div>
+        </button>
+        <button class="btn btn-sec btn-sm" style="flex:1;min-width:140px;text-align:left;padding:9px 12px" onclick="lrsApply('full')">
+          <div style="font-weight:700;font-size:12px">B) 강의실 통째 복원</div>
+          <div style="font-size:10px;color:var(--sl400);margin-top:2px">좌석 구조·모의고사·공지까지 모두 그때 그대로</div>
+        </button>
+      </div>
+      <div style="margin-top:8px;padding:7px 10px;background:#fffbeb;border-radius:6px;font-size:10px;color:#92400e;border:1px solid #fde68a;line-height:1.5">
+        ⚠ 적용 후 메모리에만 반영됩니다. [💾 저장] 눌러 Firebase에 확정해주세요.
+      </div>
+    </div>` : '';
   detail.innerHTML=`
     <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-sec btn-sm" onclick="renderSnapViewerList()">← 목록</button>
       <span style="font-weight:800;font-size:15px">${sn.name}</span>
       <span style="color:var(--sl400);font-size:11px">${sn.date} · 학생 ${sn.students.length}명 · 강의실 ${sn.rooms.length}개</span>
-      ${adminLoadBtn}
+      ${adminFullLoadBtn}
     </div>
     <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--sl200)">${roomTabs}</div>
     <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;font-size:11px;color:var(--sl500)">
@@ -2318,9 +2426,11 @@ function renderSnapViewerDetail(snapId){
       <div style="background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:5px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.7);margin-bottom:8px;max-width:${seatW*room.cols+28*colEmpty.filter(e=>e).length+room.cols*3}px;margin-left:auto;margin-right:auto">칠 판</div>
       <div style="display:grid;grid-template-columns:${colTpl};gap:3px;width:fit-content;margin:0 auto">${cardsHTML}</div>
     </div>
-    <div style="font-size:10px;color:var(--sl400);margin-top:10px;text-align:center">※ 이 화면은 읽기 전용입니다.${_adminMode?'':' 관리자 모드로 전환하면 불러오기/엑셀 다운로드가 가능합니다.'}</div>
+    ${partialPanel}
   `;
 }
+
+// (이전 버전에 있던 _changeLrsTarget 함수는 제거됨 — 단순화)
 
 /* ═══ 전체 명단 엑셀 다운로드 (관리자 전용) ═══ */
 function downloadAllExcel(){
@@ -2328,7 +2438,7 @@ function downloadAllExcel(){
   if(!S.students.length){toast('학생 데이터 없음','err');return;}
   const wb=XLSX.utils.book_new();
   // 컬럼: 반·성별·이름·학번·수학선택·탐구·반코드·고사장·좌석번호(dn=화면표시)·자리(n=업로드)
-  const hdrs=['반','성별','이름','학번','수학선택','탐구','반코드','고사장','좌석번호','자리'];
+  const hdrs=['반','성별','이름','학번','수학선택','탐구','반코드','고사장','좌석번호','업로드번호'];
   // 각 학생에 dn 매핑 + 정렬용 필드
   const rowsData=S.students.map(s=>{
     const room=getRoom(s.고사장);
