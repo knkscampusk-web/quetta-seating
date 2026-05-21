@@ -270,6 +270,18 @@ input,select,textarea{font-family:inherit;cursor:auto}
   body.pp .cc-bar{display:flex!important}
   body.pp .info-bar{display:flex!important}
 }
+/* 관리자 메뉴 드롭다운 */
+.admin-menu-wrap{position:relative;display:inline-block}
+.admin-menu-pop{position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 32px rgba(15,23,42,.18);min-width:220px;padding:5px;z-index:1000;display:none}
+.admin-menu-pop.open{display:block}
+.admin-menu-item{display:flex;align-items:center;gap:10px;padding:9px 11px;border:none;background:transparent;width:100%;text-align:left;font-family:inherit;font-size:13px;color:#0b1120;border-radius:7px;cursor:pointer;transition:background .12s}
+.admin-menu-item:hover{background:#f1f5f9}
+.admin-menu-item .ami-icon{font-size:15px;width:20px;text-align:center}
+.admin-menu-item .ami-label{font-weight:600}
+.admin-menu-item .ami-desc{font-size:10px;color:#94a3b8;margin-left:auto}
+.admin-menu-sep{height:1px;background:#e2e8f0;margin:4px 7px}
+.admin-menu-item.danger{color:#991b1b}
+.admin-menu-item.danger:hover{background:#fef2f2}
 </style>
 </head>
 <body>
@@ -320,17 +332,41 @@ input,select,textarea{font-family:inherit;cursor:auto}
     <button id="logout-btn" onclick="firebase.auth().signOut()" style="display:none;background:rgba(255,255,255,.09);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.13);padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">로그아웃</button>
     <button class="btn btn-hdr btn-sm" onclick="openModal('search-modal')">🔍 학생 검색</button>
     <button class="btn btn-hdr btn-sm" onclick="openSnapViewer()">📚 지난배치</button>
-    <!-- 관리자 전용 버튼 -->
-    <span id="admin-btns" style="display:none;gap:5px;align-items:center">
-      <button class="btn btn-hdr btn-sm" onclick="openUplModal('all')">📤 전체 업로드</button>
-      <button class="btn btn-hdr btn-sm" onclick="downloadAllExcel()">📊 전체명단 엑셀</button>
-      <button class="btn btn-hdr btn-sm" onclick="doSaveSnap()">💾 저장</button>
-      <button class="btn btn-hdr btn-sm" onclick="openSettings()">⚙ 설정</button>
+    <!-- 관리자 전용 드롭다운 메뉴 -->
+    <span id="admin-btns" class="admin-menu-wrap" style="display:none">
+      <button class="btn btn-hdr btn-sm" onclick="toggleAdminMenu(event)">⚙ 관리자 메뉴 ▾</button>
+      <div class="admin-menu-pop" id="admin-menu-pop" onclick="event.stopPropagation()">
+        <button class="admin-menu-item" onclick="closeAdminMenu();doSaveSnap()">
+          <span class="ami-icon">💾</span>
+          <span class="ami-label">저장</span>
+          <span class="ami-desc">현재 배치 스냅샷</span>
+        </button>
+        <button class="admin-menu-item" onclick="closeAdminMenu();openUplModal('all')">
+          <span class="ami-icon">📤</span>
+          <span class="ami-label">전체 업로드</span>
+          <span class="ami-desc">엑셀 명단 일괄</span>
+        </button>
+        <button class="admin-menu-item" onclick="closeAdminMenu();downloadAllExcel()">
+          <span class="ami-icon">⬇️</span>
+          <span class="ami-label">전체 다운로드</span>
+          <span class="ami-desc">학생 명단 엑셀</span>
+        </button>
+        <button class="admin-menu-item" onclick="closeAdminMenu();openSettings()">
+          <span class="ami-icon">⚙</span>
+          <span class="ami-label">설정</span>
+          <span class="ami-desc">강의실·모의고사·로그</span>
+        </button>
+        <div class="admin-menu-sep"></div>
+        <button class="admin-menu-item danger" onclick="closeAdminMenu();confirmReset()">
+          <span class="ami-icon">↺</span>
+          <span class="ami-label">전체 초기화</span>
+          <span class="ami-desc">모든 데이터 삭제</span>
+        </button>
+      </div>
     </span>
     <button class="btn btn-sm" id="admin-toggle-btn"
       style="background:rgba(255,255,255,.12);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.2)"
       onclick="toggleAdminMode()">🔒 관리자</button>
-    <button class="btn btn-sm" style="background:#7f1d1d;color:#fff;border:none" onclick="confirmReset()">↺ 초기화</button>
   </div>
 </div>
 
@@ -884,11 +920,13 @@ function _applyAdminUI(){
   const adminPrintBtns=document.getElementById('admin-print-btns');
   const toggleBtn=document.getElementById('admin-toggle-btn');
   if(adminBtns){
-    adminBtns.style.display=_adminMode?'flex':'none';
+    adminBtns.style.display=_adminMode?'inline-block':'none';
   }
   if(adminPrintBtns){
     adminPrintBtns.style.display=_adminMode?'flex':'none';
   }
+  // 관리자 모드 OFF 시 드롭다운 강제 닫기
+  if(!_adminMode){closeAdminMenu();}
   if(toggleBtn){
     if(_adminMode){
       toggleBtn.textContent='🔓 관리자';
@@ -903,6 +941,29 @@ function _applyAdminUI(){
     }
   }
 }
+
+/* ═══ 관리자 메뉴 드롭다운 ═══ */
+function toggleAdminMenu(e){
+  if(e) e.stopPropagation();
+  const pop=document.getElementById('admin-menu-pop');
+  if(!pop) return;
+  pop.classList.toggle('open');
+}
+function closeAdminMenu(){
+  const pop=document.getElementById('admin-menu-pop');
+  if(pop) pop.classList.remove('open');
+}
+// 메뉴 밖 클릭하면 닫기
+document.addEventListener('click', e=>{
+  const pop=document.getElementById('admin-menu-pop');
+  if(!pop||!pop.classList.contains('open')) return;
+  const wrap=pop.closest('.admin-menu-wrap');
+  if(wrap && !wrap.contains(e.target)) closeAdminMenu();
+});
+// ESC로도 닫기
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape') closeAdminMenu();
+});
 
 /* ═══ FIREBASE SAVE ═══ */
 /* ═══ 자동 스냅샷 (시행일 지난 모의고사) ═══ */
@@ -2438,7 +2499,7 @@ function downloadAllExcel(){
   const now=new Date();
   const dt=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
   XLSX.writeFile(wb,`quetta_전체명단_${dt}.xlsx`);
-  writeLog('전체명단 엑셀 다운로드', `${S.students.length}명`);
+  writeLog('전체 다운로드', `${S.students.length}명`);
   toast(`✅ 전체 ${S.students.length}명 엑셀 다운로드 완료`,'ok');
 }
 
