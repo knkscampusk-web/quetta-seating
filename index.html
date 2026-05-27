@@ -926,6 +926,7 @@ let S={
   active:null,view:'student',swap:null,editStudentMode:false,
   ngrEvalMeta:null, // 평가원 응시현황표 메타 정보
   cardPrefix:{ban:'',hak:''}, // 좌석 카드의 반코드/학번 앞에 붙는 접두어
+  excludedFromStats:[], // 통계 합산에서 제외할 강의실 ID 목록
 };
 let pendingExam='',_rzId=null,dragSrc=null,_editStuIdx=null,_uploadRoomId='all';
 let _statsExam=null,_pendingPrintAll=false; // _statsExam null이면 첫 진입시 자동 선택
@@ -1064,6 +1065,7 @@ function pushToFirebase(){
       autoSnapFlags:S.autoSnapFlags||[],
       ngrEvalMeta:S.ngrEvalMeta||null,
       cardPrefix:S.cardPrefix||{ban:'',hak:''},
+      excludedFromStats:S.excludedFromStats||[],
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
       .then(()=>{
         if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';}
@@ -1112,6 +1114,8 @@ function load(){
       else                    S.autoSnapFlags=S.autoSnapFlags||[];
       if(d.ngrEvalMeta)       S.ngrEvalMeta=d.ngrEvalMeta;
       if(d.cardPrefix)        S.cardPrefix={ban:d.cardPrefix.ban||'',hak:d.cardPrefix.hak||''};
+      if(d.excludedFromStats) S.excludedFromStats=d.excludedFromStats;
+      else                    S.excludedFromStats=S.excludedFromStats||[];
       // 첫 접속 시(active 비었거나 유효하지 않을 때): 통계 탭
       if(!S.active||(S.active!=='__stats__'&&!S.rooms.find(r=>r.id===S.active))){
         S.active='__stats__';
@@ -1603,9 +1607,11 @@ function renderStats(){
   document.getElementById('bar-stat').textContent='통계';
   document.getElementById('exam-row').style.display='none';
   const ef=_statsExam==='all'?null:_statsExam;
-  const fRooms=ef?S.rooms.filter(r=>r.examType===ef):S.rooms;
+  const excludedSet=new Set(S.excludedFromStats||[]);
+  const fRoomsBeforeExclude=ef?S.rooms.filter(r=>r.examType===ef):S.rooms;
+  const fRooms=fRoomsBeforeExclude.filter(r=>!excludedSet.has(r.id));
   const fIds=new Set(fRooms.map(r=>r.id));
-  const stus=ef?S.students.filter(s=>fIds.has(s.고사장)):S.students;
+  const stus=S.students.filter(s=>fIds.has(s.고사장));
   const total=stus.length,m=stus.filter(s=>s.성별==='남').length,f=stus.filter(s=>s.성별==='여').length;
   const sat=stus.filter(s=>(s.탐구||'').includes('사탐')).length;
   const gwt=stus.filter(s=>(s.탐구||'').includes('과탐')).length;
@@ -1623,14 +1629,33 @@ function renderStats(){
     ...S.examTypes.map(et=>`<option value="${et.name}" ${_statsExam===et.name?'selected':''}>${et.name}${et.date?' ('+et.date+')':''}</option>`)].join('');
   const autoSel=_autoStatsExam();
   const isAuto=(_statsExam===autoSel&&_statsExam!=='all');
+  // 제외 가능 강의실 목록 (모의고사 필터 적용 전 — 사용자가 어느 모의고사 보든 같은 강의실 목록에서 체크)
+  const allRoomsForExclude=ef?S.rooms.filter(r=>r.examType===ef):S.rooms;
+  const excludedCount=allRoomsForExclude.filter(r=>excludedSet.has(r.id)).length;
+  const roomCheckboxes=allRoomsForExclude.map(r=>{
+    const checked=!excludedSet.has(r.id);
+    return`<label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;background:${checked?'#dcfce7':'#fef2f2'};border:1px solid ${checked?'#86efac':'#fecaca'};border-radius:6px;cursor:pointer;user-select:none">
+      <input type="checkbox" ${checked?'checked':''} onchange="toggleStatsRoom('${r.id}')" style="margin:0;cursor:pointer">
+      <span style="color:${checked?'#166534':'#991b1b'};font-weight:600">${r.name}</span>
+    </label>`;
+  }).join('');
   document.getElementById('main').innerHTML=`
     <div class="card" style="margin-bottom:10px">
       <div class="stats-filter-bar">
         <span style="font-size:11px;font-weight:700;color:var(--sl500)">모의고사 필터</span>
         <select class="stats-sel" onchange="_statsExam=this.value;renderStats()">${examOpts}</select>
         ${isAuto?`<span style="font-size:10px;font-weight:600;color:#15803d;background:#dcfce7;padding:2px 7px;border-radius:10px">📅 시행 예정 자동선택</span>`:''}
-        ${ef?`<span style="font-size:11px;color:var(--sl400)">${fRooms.length}개 강의실 · ${total}명</span>`:''}
+        ${ef?`<span style="font-size:11px;color:var(--sl400)">${fRooms.length}개 강의실 · ${total}명${excludedCount?` <span style="color:#c2410c">(${excludedCount}개 제외)</span>`:''}</span>`:''}
       </div>
+      ${allRoomsForExclude.length>0?`<div style="padding:10px 15px;border-top:1px solid var(--sl200);background:#fff">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:var(--sl500)">📊 통계 포함 강의실</span>
+          <button class="btn btn-ghost btn-xs" onclick="setAllStatsRooms(true)" style="font-size:10px;padding:2px 7px">전체 선택</button>
+          <button class="btn btn-ghost btn-xs" onclick="setAllStatsRooms(false)" style="font-size:10px;padding:2px 7px">전체 해제</button>
+          <span style="font-size:10px;color:var(--sl400)">체크 해제하면 통계에서 빠집니다 (Firestore 저장됨)</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">${roomCheckboxes}</div>
+      </div>`:''}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="card" style="padding:16px 18px">
@@ -2163,13 +2188,69 @@ function renderRoomList(){
 function renderExamList(){
   const el=document.getElementById('et-list');if(!el)return;
   el.innerHTML=S.examTypes.length
-    ?S.examTypes.map((et,i)=>`<div class="li-item">
-        <div style="flex:1"><div class="li-name">${et.name}</div>
-          ${et.date?`<div class="li-sub">시행일: ${et.date}</div>`:''}
+    ?S.examTypes.map((et,i)=>{
+      // 이 모의고사가 설정된 강의실 + 그 안의 학생 수
+      const usedRooms=S.rooms.filter(r=>r.examType===et.name);
+      const usedStuCount=S.students.filter(s=>usedRooms.some(r=>r.id===s.고사장)).length;
+      const usageInfo=usedRooms.length
+        ?`<div class="li-sub" style="margin-top:2px">사용 중: <b>${usedRooms.length}개 강의실</b> (${usedRooms.map(r=>r.name).join(', ')}) · 학생 <b>${usedStuCount}</b>명</div>`
+        :`<div class="li-sub" style="margin-top:2px;color:var(--sl400)">사용 중인 강의실 없음</div>`;
+      const resetBtn=(_adminMode && usedRooms.length>0)
+        ?`<button class="btn btn-sec btn-xs" style="color:#991b1b;border-color:#fecaca;background:#fef2f2" onclick="resetExamSeats(${i})" title="이 모의고사가 설정된 강의실들의 학생만 일괄 초기화">🗑 좌석 초기화</button>`
+        :'';
+      return`<div class="li-item" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="li-name" style="flex:1">${et.name}</span>
+          ${et.date?`<span style="font-size:11px;color:var(--sl500)">시행일 ${et.date}</span>`:''}
+          ${resetBtn}
+          <button class="btn btn-danger btn-xs" onclick="removeExamType(${i})">삭제</button>
         </div>
-        <button class="btn btn-danger btn-xs" onclick="removeExamType(${i})">삭제</button>
-      </div>`).join('')
+        ${usageInfo}
+      </div>`;
+    }).join('')
     :'<div class="empty-state">목록 없음</div>';
+}
+function toggleStatsRoom(roomId){
+  if(!S.excludedFromStats) S.excludedFromStats=[];
+  const idx=S.excludedFromStats.indexOf(roomId);
+  if(idx>=0) S.excludedFromStats.splice(idx,1);
+  else S.excludedFromStats.push(roomId);
+  saveAll();
+  renderStats();
+}
+function setAllStatsRooms(includeAll){
+  if(includeAll){
+    S.excludedFromStats=[];
+  } else {
+    // 현재 표시 중인 강의실들만 제외 (모의고사 필터 적용된 것)
+    const ef=_statsExam==='all'?null:_statsExam;
+    const rooms=ef?S.rooms.filter(r=>r.examType===ef):S.rooms;
+    S.excludedFromStats=rooms.map(r=>r.id);
+  }
+  saveAll();
+  renderStats();
+}
+function resetExamSeats(idx){
+  if(!_adminMode){toast('관리자 모드 필요','err');return;}
+  const et=S.examTypes[idx];if(!et) return;
+  const usedRooms=S.rooms.filter(r=>r.examType===et.name);
+  if(!usedRooms.length){toast('사용 중인 강의실 없음','err');return;}
+  const targetIds=usedRooms.map(r=>r.id);
+  const targetStus=S.students.filter(s=>targetIds.includes(s.고사장));
+  if(!targetStus.length){
+    if(!confirm(`"${et.name}" 모의고사가 설정된 강의실(${targetIds.join(', ')})에 배정된 학생이 없습니다.\n그래도 계속하시겠습니까?`)) return;
+  } else {
+    if(!confirm(`⚠ "${et.name}" 모의고사가 설정된 ${usedRooms.length}개 강의실(${targetIds.join(', ')})의\n학생 ${targetStus.length}명을 완전 삭제합니다.\n\n· 좌석 구조, 모의고사 설정, 스냅샷은 유지됩니다\n· 학생 데이터 자체가 사라지므로 새로 업로드해야 합니다\n\n계속하시겠습니까?`)) return;
+  }
+  const pw=prompt('⚠ 좌석 초기화 비밀번호를 입력하세요:');
+  if(pw===null) return;
+  if(pw!=='6688'){alert('비밀번호가 틀렸습니다.');return;}
+  const removedCount=targetStus.length;
+  S.students=S.students.filter(s=>!targetIds.includes(s.고사장));
+  S.students.forEach((s,i)=>s._i=i);
+  saveAll();renderAll();renderSettingsContent();
+  writeLog('모의고사 좌석 초기화', `${et.name} · ${usedRooms.length}개 강의실 · ${removedCount}명 삭제`);
+  toast(`✅ "${et.name}" — ${usedRooms.length}개 강의실 · ${removedCount}명 초기화 완료`,'ok');
 }
 function renderSnapList(){
   const el=document.getElementById('snap-list');if(!el)return;
