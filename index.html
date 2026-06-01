@@ -947,6 +947,7 @@ let S={
   snapshots:[],
   active:null,view:'student',swap:null,editStudentMode:false,
   ngrEvalMeta:null, // 평가원 응시현황표 메타 정보
+  ngrEvalChecks:{}, // 평가원 응시현황표 5교시 토글 (학년도_차수별)
   cardPrefix:{ban:'',hak:''}, // 좌석 카드의 반코드/학번 앞에 붙는 접두어
   excludedFromStats:[], // 통계 합산에서 제외할 강의실 ID 목록
 };
@@ -1086,6 +1087,7 @@ function pushToFirebase(){
     DOC.set({rooms:S.rooms,students:S.students,examTypes:S.examTypes,snapshots:S.snapshots,
       autoSnapFlags:S.autoSnapFlags||[],
       ngrEvalMeta:S.ngrEvalMeta||null,
+      ngrEvalChecks:S.ngrEvalChecks||{},
       cardPrefix:S.cardPrefix||{ban:'',hak:''},
       excludedFromStats:S.excludedFromStats||[],
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
@@ -1135,6 +1137,7 @@ function load(){
       if(d.autoSnapFlags)     S.autoSnapFlags=d.autoSnapFlags;
       else                    S.autoSnapFlags=S.autoSnapFlags||[];
       if(d.ngrEvalMeta)       S.ngrEvalMeta=d.ngrEvalMeta;
+      if(d.ngrEvalChecks)     S.ngrEvalChecks=d.ngrEvalChecks;
       if(d.cardPrefix)        S.cardPrefix={ban:d.cardPrefix.ban||'',hak:d.cardPrefix.hak||''};
       if(d.excludedFromStats) S.excludedFromStats=d.excludedFromStats;
       else                    S.excludedFromStats=S.excludedFromStats||[];
@@ -2744,9 +2747,18 @@ function openEvalForm(){
   const w = window.open('', 'quetta-eval-form', 'width=920,height=900,scrollbars=yes,resizable=yes');
   if(!w){ alert('팝업이 차단되었습니다. 브라우저에서 이 사이트의 팝업을 허용해주세요.'); return; }
   // 4) 데이터/저장 콜백을 새 창에 주입
-  w.QUETTA_DATA = { byBanCode, meta, validCount, totalCount };
+  w.QUETTA_DATA = { byBanCode, meta, validCount, totalCount, allChecks: S.ngrEvalChecks || {} };
   w.QUETTA_SAVE_META = function(newMeta){
     S.ngrEvalMeta = newMeta;
+    saveAll();
+  };
+  w.QUETTA_SAVE_CHECKS = function(key, checks){
+    if(!S.ngrEvalChecks) S.ngrEvalChecks = {};
+    if(checks && Object.keys(checks).length > 0){
+      S.ngrEvalChecks[key] = checks;
+    } else {
+      delete S.ngrEvalChecks[key]; // 빈 객체는 제거
+    }
     saveAll();
   };
   // 5) HTML 주입
@@ -2842,15 +2854,50 @@ body { margin: 0; font-family: -apple-system, 'Malgun Gothic', 'Noto Sans KR', s
     <label>반 코드 <select id="ban-select" style="width:180px"></select></label>
     <button class="btn btn-print" onclick="doPrint()">🖨 인쇄 (현재 반)</button>
     <button class="btn btn-all" onclick="printAllBans()">🖨 전체 반 일괄 인쇄</button>
+    <button class="btn" onclick="resetCurrentChecks()" style="background:#7c2d12;color:#fff">↺ 5교시 토글 초기화</button>
     <span class="info" id="info-stat">반을 선택하세요</span>
   </div>
 </div>
 <div id="pages"></div>
 <script>
-const DATA = window.QUETTA_DATA || { byBanCode:{}, meta:{}, validCount:0, totalCount:0 };
+const DATA = window.QUETTA_DATA || { byBanCode:{}, meta:{}, validCount:0, totalCount:0, allChecks:{} };
 const SAVE_META = window.QUETTA_SAVE_META || function(){};
+const SAVE_CHECKS = window.QUETTA_SAVE_CHECKS || function(){};
+const ALL_CHECKS = DATA.allChecks || {};
 let CHECKED5 = {};
 let CURRENT_BAN = null;
+let _saveChecksTimer = null;
+
+function getCurrentKey(){
+  const year = (document.getElementById('meta-year')?.value||'').trim() || '____';
+  const month = (document.getElementById('meta-month')?.value||'').trim() || '__';
+  return year + '_' + month;
+}
+function loadChecksForCurrentKey(){
+  const key = getCurrentKey();
+  CHECKED5 = Object.assign({}, ALL_CHECKS[key] || {});
+}
+function saveChecksDebounced(){
+  clearTimeout(_saveChecksTimer);
+  _saveChecksTimer = setTimeout(() => {
+    try {
+      const key = getCurrentKey();
+      SAVE_CHECKS(key, CHECKED5);
+      if(Object.keys(CHECKED5).length > 0) ALL_CHECKS[key] = Object.assign({}, CHECKED5);
+      else delete ALL_CHECKS[key];
+    } catch(e){ console.warn('토글 저장 실패:', e); }
+  }, 500);
+}
+function resetCurrentChecks(){
+  const year = (document.getElementById('meta-year')?.value||'').trim() || '____';
+  const month = (document.getElementById('meta-month')?.value||'').trim() || '__';
+  if(!confirm('"' + year + '학년도 ' + month + '" 모의고사의 모든 5교시 토글 변경을 초기화합니다.\\n(모든 5교시 칸이 다시 "X" 기본값으로 돌아갑니다)\\n\\n계속하시겠습니까?')) return;
+  const key = getCurrentKey();
+  CHECKED5 = {};
+  delete ALL_CHECKS[key];
+  try { SAVE_CHECKS(key, {}); } catch(e){}
+  render();
+}
 
 function init(){
   // 메타 입력 필드 초기값
@@ -2859,10 +2906,16 @@ function init(){
   document.getElementById('meta-sido').value = DATA.meta.sido || '';
   document.getElementById('meta-school').value = DATA.meta.school || '';
   document.getElementById('meta-schoolno').value = DATA.meta.schoolNo || '';
-  // 메타 변경 시 본 앱에 저장 + 화면 갱신 (debounce)
+  // 초기 CHECKED5 로드
+  loadChecksForCurrentKey();
+  // 메타 변경 시 본 앱에 저장 + 화면 갱신
   let saveTimer = null;
   ['meta-year','meta-month','meta-sido','meta-school','meta-schoolno'].forEach(id => {
     document.getElementById(id).oninput = () => {
+      // 학년도/차수가 바뀌면 토글도 새로 로드 (다른 모의고사 키니까)
+      if(id === 'meta-year' || id === 'meta-month'){
+        loadChecksForCurrentKey();
+      }
       render();
       clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
@@ -2889,9 +2942,10 @@ function init(){
 
 function toggle5(banCode, hak){
   const k = banCode + ':' + hak;
-  CHECKED5[k] = !CHECKED5[k];
+  if(CHECKED5[k]) delete CHECKED5[k]; else CHECKED5[k] = true;
   const el = document.querySelector('[data-toggle="' + k + '"]');
   if(el) el.textContent = CHECKED5[k] ? '' : 'X';
+  saveChecksDebounced();
 }
 function is5Blank(banCode, hak){ return !!CHECKED5[banCode + ':' + hak]; }
 
