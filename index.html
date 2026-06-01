@@ -2884,6 +2884,8 @@ body { margin: 0; font-family: -apple-system, 'Malgun Gothic', 'Noto Sans KR', s
     <label>시·도 <input type="text" id="meta-sido" placeholder="예: 서울" style="width:80px"></label>
     <label>학교(학원)명 <input type="text" id="meta-school" placeholder="학원명" style="width:180px"></label>
     <label>학교(학원) 번호 <input type="text" id="meta-schoolno" placeholder="번호" style="width:110px"></label>
+    <button class="btn" id="save-btn" onclick="saveCurrentDataNow()" style="background:#15803d;color:#fff;align-self:flex-end">💾 저장</button>
+    <span id="dirty-indicator" style="font-size:11px;font-weight:700;color:#dc2626;align-self:flex-end;padding:6px 0;display:none">● 미저장 변경 있음</span>
     <span id="save-status" style="font-size:11px;color:#15803d;opacity:0.5;transition:opacity .3s;align-self:flex-end;padding:6px 0"></span>
   </div>
   <div class="controls-row">
@@ -2900,10 +2902,10 @@ const DATA = window.QUETTA_DATA || { byBanCode:{}, validCount:0, totalCount:0, e
 const SAVE_EXAM_DATA = window.QUETTA_SAVE_EXAM_DATA || function(){};
 const SAVE_LAST_EXAM = window.QUETTA_SAVE_LAST_EXAM || function(){};
 const ALL_EXAM_DATA = DATA.allExamData || {};
-let CURRENT_EXAM = null; // 현재 선택된 모의고사 이름
-let CHECKED5 = {}; // 현재 모의고사의 5교시 토글
+let CURRENT_EXAM = null;
+let CHECKED5 = {};
 let CURRENT_BAN = null;
-let _saveDataTimer = null;
+let DIRTY = false; // 미저장 변경 있음
 
 function getCurrentMeta(){
   return {
@@ -2921,12 +2923,46 @@ function applyMetaToInputs(meta){
   document.getElementById('meta-school').value = meta.school || '';
   document.getElementById('meta-schoolno').value = meta.schoolNo || '';
 }
+function markDirty(){
+  DIRTY = true;
+  updateSaveBtnState();
+}
+function clearDirty(){
+  DIRTY = false;
+  updateSaveBtnState();
+}
+function updateSaveBtnState(){
+  const btn = document.getElementById('save-btn');
+  const ind = document.getElementById('dirty-indicator');
+  if(btn){
+    if(DIRTY){
+      btn.style.background = '#dc2626';
+      btn.style.color = '#fff';
+      btn.textContent = '💾 저장 (변경됨)';
+    } else {
+      btn.style.background = '#15803d';
+      btn.style.color = '#fff';
+      btn.textContent = '💾 저장';
+    }
+  }
+  if(ind){
+    ind.style.display = DIRTY ? 'inline-block' : 'none';
+  }
+}
 function selectExam(examName){
+  // 미저장 변경 있으면 확인
+  if(DIRTY && CURRENT_EXAM && examName !== CURRENT_EXAM){
+    if(!confirm('"' + CURRENT_EXAM + '"에 저장하지 않은 변경 사항이 있습니다.\\n변경 내용을 버리고 다른 모의고사로 이동하시겠습니까?')){
+      // 드롭다운을 원래대로 되돌림
+      document.getElementById('exam-select').value = CURRENT_EXAM;
+      return;
+    }
+  }
   CURRENT_EXAM = examName || null;
   if(!CURRENT_EXAM){
-    // 미선택: 메타·토글 빈 상태
     applyMetaToInputs({});
     CHECKED5 = {};
+    clearDirty();
     render();
     return;
   }
@@ -2935,7 +2971,6 @@ function selectExam(examName){
     applyMetaToInputs(data.meta || {});
     CHECKED5 = Object.assign({}, data.checks || {});
   } else {
-    // 처음 선택하는 모의고사: 메타는 옛 데이터(legacyMeta) 또는 기본값으로 시작
     const fallback = DATA.legacyMeta || {
       year: String(new Date().getFullYear()+1),
       month:'', sido:'', school:'', schoolNo:''
@@ -2943,32 +2978,25 @@ function selectExam(examName){
     applyMetaToInputs(fallback);
     CHECKED5 = {};
   }
+  clearDirty();
   render();
   try { SAVE_LAST_EXAM(CURRENT_EXAM); } catch(e){}
 }
-function saveCurrentDataDebounced(){
-  if(!CURRENT_EXAM) return; // 선택된 모의고사 없으면 저장 X
-  clearTimeout(_saveDataTimer);
-  _saveDataTimer = setTimeout(() => {
-    saveCurrentDataNow();
-  }, 250); // 빠른 응답 (이전 500ms → 250ms)
-}
 function saveCurrentDataNow(){
-  if(!CURRENT_EXAM) return;
+  if(!CURRENT_EXAM){ alert('모의고사를 먼저 선택하세요'); return; }
   try {
     const data = { meta: getCurrentMeta(), checks: Object.assign({}, CHECKED5) };
     ALL_EXAM_DATA[CURRENT_EXAM] = data;
     SAVE_EXAM_DATA(CURRENT_EXAM, data);
+    clearDirty();
     showSaveStatus('✓ 저장됨');
-  } catch(e){ console.warn('저장 실패:', e); showSaveStatus('⚠ 저장 실패','err'); }
-}
-// 창 닫힐 때 미저장 데이터 강제 저장 (debounce 대기 중인 게 있으면 즉시 flush)
-window.addEventListener('beforeunload', () => {
-  if(_saveDataTimer){
-    clearTimeout(_saveDataTimer);
-    saveCurrentDataNow();
+  } catch(e){
+    console.warn('저장 실패:', e);
+    const msg = e && e.message ? e.message : '알 수 없는 오류';
+    showSaveStatus('⚠ ' + msg, 'err');
+    alert('저장 실패: ' + msg + '\\n\\n본 앱 페이지가 살아있는지 확인하고 다시 시도하세요.');
   }
-});
+}
 function showSaveStatus(msg, type){
   const el = document.getElementById('save-status');
   if(!el) return;
@@ -2976,19 +3004,19 @@ function showSaveStatus(msg, type){
   el.style.color = type==='err' ? '#991b1b' : '#15803d';
   el.style.opacity = '1';
   clearTimeout(showSaveStatus._t);
-  showSaveStatus._t = setTimeout(()=>{ el.style.opacity='0.5'; }, 1500);
+  showSaveStatus._t = setTimeout(()=>{ el.style.opacity='0.5'; }, 2000);
 }
 function resetCurrentExamData(){
   if(!CURRENT_EXAM){ alert('모의고사를 먼저 선택하세요'); return; }
   if(!confirm('"' + CURRENT_EXAM + '"의 모든 메타 정보와 5교시 토글을 초기화합니다.\\n저장된 데이터가 사라집니다.\\n\\n계속하시겠습니까?')) return;
   delete ALL_EXAM_DATA[CURRENT_EXAM];
   try { SAVE_EXAM_DATA(CURRENT_EXAM, null); } catch(e){}
-  // 빈 상태로 시작
   applyMetaToInputs({
     year: String(new Date().getFullYear()+1),
     month:'', sido:'', school:'', schoolNo:''
   });
   CHECKED5 = {};
+  clearDirty();
   render();
 }
 
@@ -3003,18 +3031,17 @@ function init(){
     examSel.innerHTML = '<option value="">-- 모의고사 선택 --</option>' +
       examTypes.map(et => '<option value="' + et.name + '">' + et.name + (et.date?' ('+et.date+')':'') + '</option>').join('');
     examSel.onchange = e => selectExam(e.target.value);
-    // 마지막 선택했던 모의고사 자동 선택 (있고, 목록에도 있어야)
     const last = DATA.lastExam;
     if(last && examTypes.some(et => et.name === last)){
       examSel.value = last;
       selectExam(last);
     }
   }
-  // 메타 입력 필드 변경 → 자동 저장 (debounce)
+  // 메타 입력 필드 변경 → dirty 표시만 (저장 X)
   ['meta-year','meta-month','meta-sido','meta-school','meta-schoolno'].forEach(id => {
     document.getElementById(id).oninput = () => {
+      if(CURRENT_EXAM) markDirty();
       render();
-      saveCurrentDataDebounced();
     };
   });
   // 반 드롭다운
@@ -3023,6 +3050,7 @@ function init(){
   banSel.innerHTML = '<option value="">-- 반 선택 --</option>' +
     codes.map(k => '<option value="' + k + '">' + k + ' (' + DATA.byBanCode[k].length + '명)</option>').join('');
   banSel.onchange = e => { CURRENT_BAN = e.target.value; render(); };
+  updateSaveBtnState();
   render();
 }
 
@@ -3032,9 +3060,18 @@ function toggle5(banCode, hak){
   if(CHECKED5[k]) delete CHECKED5[k]; else CHECKED5[k] = true;
   const el = document.querySelector('[data-toggle="' + k + '"]');
   if(el) el.textContent = CHECKED5[k] ? '' : 'X';
-  saveCurrentDataDebounced();
+  markDirty(); // 자동 저장 X — 사용자가 [💾 저장] 클릭해야 저장됨
 }
 function is5Blank(banCode, hak){ return !!CHECKED5[banCode + ':' + hak]; }
+
+// 창 닫힐 때 미저장 상태면 확인
+window.addEventListener('beforeunload', (e) => {
+  if(DIRTY){
+    e.preventDefault();
+    e.returnValue = '저장하지 않은 변경 사항이 있습니다. 정말 닫으시겠습니까?';
+    return e.returnValue;
+  }
+});
 
 function render(){
   const pages = document.getElementById('pages');
