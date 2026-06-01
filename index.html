@@ -1073,16 +1073,16 @@ function checkAutoSnap(){
   }
 }
 
-function saveAll(){
+function saveAll(opts){
   if(S.view==='edit'){saveTempLocal();return;}
-  pushToFirebase();
+  pushToFirebase(opts&&opts.immediate);
 }
 function saveTempLocal(){
   try{localStorage.setItem('qtt_temp',JSON.stringify({rooms:S.rooms}));}catch(e){}
 }
-function pushToFirebase(){
+function pushToFirebase(immediate){
   clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(()=>{
+  const exec=()=>{
     const stat=document.getElementById('sync-stat');
     if(stat){stat.textContent='저장 중...';stat.style.color='#fde68a';}
     _syncing=true; // 내가 저장 중 — onSnapshot이 덮어씌우지 않도록
@@ -1103,7 +1103,9 @@ function pushToFirebase(){
         console.error(e);_syncing=false;
         if(stat){stat.textContent='⚠ 실패';stat.style.color='#fca5a5';}
       });
-  },400);
+  };
+  if(immediate) exec();
+  else _saveTimer=setTimeout(exec,400);
 }
 function saveLayoutNow(){pushToFirebase();toast('배열 저장됨 ✅','ok');}
 
@@ -2778,18 +2780,18 @@ function openEvalForm(){
     lastExam: S.ngrEvalLastExam || null,
     legacyMeta: S.ngrEvalMeta || null, // 옛 단일 메타 (첫 진입 시 기본값으로 활용)
   };
-  // 모의고사 단위 저장 콜백 (메타 + 토글 함께)
+  // 모의고사 단위 저장 콜백 (메타 + 토글 함께) — debounce 우회 즉시 저장
   w.QUETTA_SAVE_EXAM_DATA = function(examName, data){
     if(!examName) return;
     if(!S.ngrEvalData) S.ngrEvalData = {};
     if(data) S.ngrEvalData[examName] = data;
     else delete S.ngrEvalData[examName];
-    saveAll();
+    saveAll({immediate:true});
   };
   // 마지막 선택한 모의고사 저장 (다음 진입 시 자동 선택)
   w.QUETTA_SAVE_LAST_EXAM = function(examName){
     S.ngrEvalLastExam = examName || null;
-    saveAll();
+    saveAll({immediate:true});
   };
   // 5) HTML 주입
   w.document.open();
@@ -2948,14 +2950,25 @@ function saveCurrentDataDebounced(){
   if(!CURRENT_EXAM) return; // 선택된 모의고사 없으면 저장 X
   clearTimeout(_saveDataTimer);
   _saveDataTimer = setTimeout(() => {
-    try {
-      const data = { meta: getCurrentMeta(), checks: Object.assign({}, CHECKED5) };
-      ALL_EXAM_DATA[CURRENT_EXAM] = data;
-      SAVE_EXAM_DATA(CURRENT_EXAM, data);
-      showSaveStatus('✓ 저장됨');
-    } catch(e){ console.warn('저장 실패:', e); showSaveStatus('⚠ 저장 실패','err'); }
-  }, 500);
+    saveCurrentDataNow();
+  }, 250); // 빠른 응답 (이전 500ms → 250ms)
 }
+function saveCurrentDataNow(){
+  if(!CURRENT_EXAM) return;
+  try {
+    const data = { meta: getCurrentMeta(), checks: Object.assign({}, CHECKED5) };
+    ALL_EXAM_DATA[CURRENT_EXAM] = data;
+    SAVE_EXAM_DATA(CURRENT_EXAM, data);
+    showSaveStatus('✓ 저장됨');
+  } catch(e){ console.warn('저장 실패:', e); showSaveStatus('⚠ 저장 실패','err'); }
+}
+// 창 닫힐 때 미저장 데이터 강제 저장 (debounce 대기 중인 게 있으면 즉시 flush)
+window.addEventListener('beforeunload', () => {
+  if(_saveDataTimer){
+    clearTimeout(_saveDataTimer);
+    saveCurrentDataNow();
+  }
+});
 function showSaveStatus(msg, type){
   const el = document.getElementById('save-status');
   if(!el) return;
