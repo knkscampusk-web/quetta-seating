@@ -2784,8 +2784,17 @@ function openEvalForm(){
   w.QUETTA_SAVE_EXAM_DATA = function(examName, data){
     if(!examName) return;
     if(!S.ngrEvalData) S.ngrEvalData = {};
-    if(data) S.ngrEvalData[examName] = data;
-    else delete S.ngrEvalData[examName];
+    if(data){
+      // 새 창에서 온 객체를 본 앱 컨텍스트의 plain object로 변환 (Firestore cross-window 이슈 방지)
+      try {
+        S.ngrEvalData[examName] = JSON.parse(JSON.stringify(data));
+      } catch(e){
+        console.error('데이터 변환 실패:', e);
+        throw new Error('데이터 형식 오류: ' + e.message);
+      }
+    } else {
+      delete S.ngrEvalData[examName];
+    }
     saveAll({immediate:true});
   };
   // 마지막 선택한 모의고사 저장 (다음 진입 시 자동 선택)
