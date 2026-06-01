@@ -554,6 +554,28 @@ input,select,textarea{font-family:inherit;cursor:auto}
     <div class="mbody">
       <div id="es-header" style="font-size:13px;font-weight:700;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--sl200)"></div>
 
+      <!-- 기본 정보 (이름·반·학번) -->
+      <div class="fg">
+        <label class="fl">기본 정보</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:1;min-width:100px">
+            <div style="font-size:10px;color:var(--sl500);margin-bottom:2px">이름</div>
+            <input class="fi" id="es-name" type="text" style="padding:6px 9px;font-size:12px;width:100%">
+          </div>
+          <div style="width:80px">
+            <div style="font-size:10px;color:var(--sl500);margin-bottom:2px">반</div>
+            <input class="fi" id="es-ban" type="text" placeholder="예: X2" style="padding:6px 9px;font-size:12px;width:100%">
+          </div>
+          <div style="width:90px">
+            <div style="font-size:10px;color:var(--sl500);margin-bottom:2px">학번</div>
+            <input class="fi" id="es-hak" type="text" placeholder="예: 01" style="padding:6px 9px;font-size:12px;width:100%">
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--sl400);margin-top:4px;line-height:1.5">
+          💡 학번은 "01" 같이 앞자리 0이 있는 텍스트도 그대로 보존돼요
+        </div>
+      </div>
+
       <!-- 정보 수정 -->
       <div class="fg">
         <label class="fl">성별</label>
@@ -2043,6 +2065,10 @@ function openEditStu(idx){
   const cell=getRoom(stu.고사장)?.cells.find(c=>c.n===+stu.자리);
   document.getElementById('es-header').innerHTML=
     `<b>${stu.이름}</b> <span style="color:var(--sl400);font-size:12px">${stu.학번} · ${stu.반||''} · 현재: ${stu.고사장||'미배정'} ${cell?cell.dn+'번':'?번'}</span>`;
+  // 기본 정보 (이름/반/학번)
+  document.getElementById('es-name').value=stu.이름||'';
+  document.getElementById('es-ban').value=stu.반||'';
+  document.getElementById('es-hak').value=stu.학번||'';
   document.querySelectorAll('[name="es-gender"]').forEach(r=>r.checked=r.value===stu.성별);
   document.querySelectorAll('[name="es-subject"]').forEach(r=>r.checked=r.value===(stu.탐구||''));
   document.querySelectorAll('[name="es-math"]').forEach(r=>r.checked=r.value===(stu.수학선택||''));
@@ -2055,10 +2081,21 @@ function openEditStu(idx){
 }
 function saveEditStu(){
   const stu=S.students.find(s=>s._i===_editStuIdx);if(!stu) return;
+  // 기본 정보 (이름·반·학번)
+  const newName=(document.getElementById('es-name')?.value||'').trim();
+  if(!newName){toast('이름은 비울 수 없습니다','err');return;}
+  const newBan=(document.getElementById('es-ban')?.value||'').trim();
+  const newHak=(document.getElementById('es-hak')?.value||'').trim();
+  const oldName=stu.이름;
+  stu.이름=newName;
+  stu.반=newBan;
+  stu.학번=newHak;
   stu.성별=document.querySelector('[name="es-gender"]:checked')?.value||'';
   stu.탐구=document.querySelector('[name="es-subject"]:checked')?.value||'';
   stu.수학선택=document.querySelector('[name="es-math"]:checked')?.value||'';
-  saveAll();renderMain();closeModal('edit-stu-modal');toast(`${stu.이름} 수정됨`,'ok');
+  saveAll();renderMain();closeModal('edit-stu-modal');
+  toast(`${oldName!==newName?oldName+' → ':''}${newName} 수정됨`,'ok');
+  writeLog('학생 정보 수정', `${newName} (${newHak}) / ${newBan}`);
 }
 function forceMoveStu(){
   const stu=S.students.find(s=>s._i===_editStuIdx);if(!stu) return;
