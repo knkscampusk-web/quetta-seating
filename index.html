@@ -819,6 +819,7 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.firestore();
 const auth=firebase.auth();
 const DOC=db.collection('quetta').doc('state');
+const SNAPS=db.collection('quetta_snapshots'); // 신: 스냅샷 별도 컬렉션 (1MB 한도 해결)
 const USERS=db.collection('quetta_users');
 const LOGS=db.collection('quetta_logs');
 const JANDI_WEBHOOK='https://wh.jandi.com/connect-api/webhook/30603710/b364767f5f3f0c895c35025ff2e48475';
@@ -838,6 +839,53 @@ async function sendJandi(title,body,color='#2BADA0'){
       })
     });
   }catch(e){console.log('잔디 알림 오류(무시):', e);}
+}
+
+/* ═══ 스냅샷 별도 컬렉션 (1MB 한도 해결) ═══ */
+// 새 컬렉션에 스냅샷 저장 (큰 데이터 — 학생/강의실 본체)
+async function saveSnapToNewCollection(snap){
+  try{
+    // cross-window/serialize 안전을 위해 plain object로
+    const data=JSON.parse(JSON.stringify(snap));
+    await SNAPS.doc(snap.id).set(data);
+    return true;
+  }catch(e){
+    console.error('스냅샷 저장 실패:',e);
+    return false;
+  }
+}
+// 새 컬렉션에서 모든 스냅샷 불러오기 (앱 로드 시 1회)
+async function loadAllSnapsFromNewCollection(){
+  try{
+    const snap=await SNAPS.get();
+    const arr=[];
+    snap.forEach(d=>arr.push(d.data()));
+    return arr;
+  }catch(e){
+    console.error('스냅샷 컬렉션 로드 실패:',e);
+    return [];
+  }
+}
+// 새 컬렉션에서 스냅샷 삭제
+async function deleteSnapFromNewCollection(id){
+  try{
+    await SNAPS.doc(id).delete();
+    return true;
+  }catch(e){
+    console.error('스냅샷 삭제 실패:',e);
+    return false;
+  }
+}
+// 옛 + 새 스냅샷 통합 검색 — 둘 중 어디 있든 찾기
+function findAnySnap(id){
+  return S.snapshots.find(s=>s.id===id) || S.newSnapshots.find(s=>s.id===id);
+}
+// 옛 + 새 스냅샷 통합 (목록 표시용, savedAt/date 기준 정렬)
+function getAllSnaps(){
+  // 새 것 + 옛 것을 합치되, id 기준 중복 제거 (새 것 우선)
+  const seen=new Set(S.newSnapshots.map(s=>s.id));
+  const old=S.snapshots.filter(s=>!seen.has(s.id));
+  return [...S.newSnapshots, ...old];
 }
 
 /* ═══ 활동 로그 기록 ═══ */
@@ -944,7 +992,8 @@ let S={
     {name:'7월 모의고사',date:''},{name:'9월 모의고사',date:''},{name:'10월 모의고사',date:''},
     {name:'수능',date:''}
   ],
-  snapshots:[],
+  snapshots:[], // (구) 옛 스냅샷 - 메인 문서 안 (마이그레이션 전 잔존)
+  newSnapshots:[], // (신) quetta_snapshots 컬렉션의 스냅샷들 (메모리에만 보관, Firestore에 메인 문서로 저장 안 함)
   active:null,view:'student',swap:null,editStudentMode:false,
   ngrEvalMeta:null, // (구) 평가원 응시현황표 메타 정보
   ngrEvalChecks:{}, // (구) 평가원 응시현황표 5교시 토글 (학년도_차수별)
@@ -1048,27 +1097,31 @@ function checkAutoSnap(){
     // 이 examType이 어떤 강의실에 설정되어 있는지
     const hasRoom=S.rooms.some(r=>r.examType===et.name);
     if(!hasRoom) return;
-    // 동일/유사 이름 수동 스냅샷이 이미 있으면 플래그만 박고 건너뛰기
+    // 동일/유사 이름 수동 스냅샷이 이미 있으면 플래그만 박고 건너뛰기 (옛+새 모두 검색)
     const snapName=`${et.name} (자동저장 ${et.date})`;
-    if(S.snapshots.find(s=>s.name===snapName||s.name===et.name)){
+    const exists=S.snapshots.find(s=>s.name===snapName||s.name===et.name)
+              || S.newSnapshots.find(s=>s.name===snapName||s.name===et.name);
+    if(exists){
       S.autoSnapFlags.push(et.name);
       return;
     }
-    // 자동 스냅샷 저장
-    S.snapshots.push({
+    // 자동 스냅샷 저장 — 새 컬렉션으로 (1MB 한도 회피)
+    const snap={
       id:'auto_'+Date.now().toString()+'_'+saved,
       name:snapName,
       date:new Date().toLocaleDateString('ko-KR'),
       rooms:JSON.parse(JSON.stringify(S.rooms)),
       students:JSON.parse(JSON.stringify(S.students)),
       autoSaved:true,
-    });
+    };
+    S.newSnapshots.push(snap);
+    saveSnapToNewCollection(snap); // 비동기, 별도 컬렉션
     S.autoSnapFlags.push(et.name);
     saved++;
     console.log('[자동 스냅샷 저장]', snapName);
   });
   if(saved>0){
-    saveAll();
+    saveAll(); // autoSnapFlags만 메인 문서에 저장
     writeLog('자동 스냅샷 저장', `${saved}건 (시행일 지난 모의고사)`);
   }
 }
@@ -1162,6 +1215,14 @@ function load(){
       S.active='__stats__';
       saveAll();
     }
+    // 새 컬렉션의 스냅샷도 비동기 로드 (백그라운드, UI 안 막음)
+    loadAllSnapsFromNewCollection().then(arr=>{
+      S.newSnapshots=arr;
+      // 설정 모달이 열려있으면 목록 갱신
+      if(document.getElementById('settings-modal')?.classList.contains('on')){
+        if(typeof renderSnapList==='function') renderSnapList();
+      }
+    });
     renderAll();
   },err=>{
     console.error(err);
@@ -1469,9 +1530,8 @@ function resolveDisplayContext(room){
   // 다음 모의고사 스냅샷 존재 여부 (안내에 활용)
   let upcomingSnap=null;
   if(upcoming){
-    upcomingSnap=S.snapshots.find(s=>
-      s.name===upcoming.name || s.name===`${upcoming.name} (자동저장 ${upcoming.date})`
-    );
+    const matcher=s=>s.name===upcoming.name || s.name===`${upcoming.name} (자동저장 ${upcoming.date})`;
+    upcomingSnap=S.snapshots.find(matcher) || S.newSnapshots.find(matcher);
   }
   return {
     mode:'empty',
@@ -2328,17 +2388,77 @@ function resetExamSeats(idx){
   writeLog('모의고사 좌석 초기화', `${et.name} · ${usedRooms.length}개 강의실 · ${removedCount}명 삭제`);
   toast(`✅ "${et.name}" — ${usedRooms.length}개 강의실 · ${removedCount}명 초기화 완료`,'ok');
 }
+
+/* ═══ 옛 스냅샷 마이그레이션 (메인 문서 → 새 컬렉션) ═══ */
+async function migrateOldSnapshots(){
+  if(!_adminMode){toast('관리자 모드 필요','err');return;}
+  const oldSnaps=S.snapshots.slice();
+  if(!oldSnaps.length){toast('옮길 스냅샷 없음','err');return;}
+  if(!confirm(`옛 위치의 ${oldSnaps.length}개 스냅샷을 새 컬렉션으로 옮깁니다.\n\n· 원본은 안 지웁니다 (복사 후 확인 후 정리)\n· 다른 사용자가 동시에 본 앱을 쓰면 안 됩니다\n\n계속하시겠습니까?`)) return;
+
+  const btn=document.querySelector('button[onclick="migrateOldSnapshots()"]');
+  if(btn){btn.disabled=true;btn.textContent='옮기는 중...';}
+
+  let success=0,failed=0;
+  for(let i=0;i<oldSnaps.length;i++){
+    const sn=oldSnaps[i];
+    // 이미 새 컬렉션에 같은 id가 있으면 건너뛰기 (중복 방지)
+    if(S.newSnapshots.some(s=>s.id===sn.id)){
+      success++;
+      if(btn) btn.textContent=`진행 ${success+failed}/${oldSnaps.length}`;
+      continue;
+    }
+    const ok=await saveSnapToNewCollection(sn);
+    if(ok){
+      S.newSnapshots.push(sn);
+      success++;
+    } else {
+      failed++;
+    }
+    if(btn) btn.textContent=`진행 ${success+failed}/${oldSnaps.length}`;
+  }
+
+  if(failed===0 && success===oldSnaps.length){
+    if(confirm(`✅ ${success}개 모두 복사 성공!\n\n옛 위치(메인 문서)에서 정리하시겠습니까?\n(메인 문서가 가벼워져 1MB 한도 회피)`)){
+      S.snapshots=[];
+      saveAll();
+      toast(`✅ 마이그레이션 완료 — ${success}건`,'ok');
+      writeLog('스냅샷 마이그레이션', `${success}건 → 새 컬렉션`);
+    } else {
+      toast(`복사만 완료 — 옛 위치는 그대로`,'ok');
+    }
+  } else {
+    alert(`⚠ 일부 실패\n성공: ${success}건\n실패: ${failed}건\n\n옛 위치는 그대로 둡니다. 다시 시도하거나 문의해주세요.`);
+  }
+  if(btn){btn.disabled=false;btn.textContent='🔄 옛 스냅샷 옮기기';}
+  renderSnapList();
+}
+
 function renderSnapList(){
   const el=document.getElementById('snap-list');if(!el)return;
-  el.innerHTML=S.snapshots.length
-    ?[...S.snapshots].reverse().map(sn=>`<div class="li-item">
-        <div style="flex:1"><div class="li-name">${sn.name}</div>
-          <div class="li-sub">${sn.date} · 학생 ${sn.students.length}명 · 강의실 ${sn.rooms.length}개</div></div>
-        <button class="btn btn-sec btn-sm" onclick="loadSnap('${sn.id}')">불러오기</button>
-        <button class="btn btn-green btn-sm" onclick="downloadSnapExcel('${sn.id}')">⬇ 다운로드</button>
-        <button class="btn btn-danger btn-xs" onclick="removeSnap('${sn.id}')">삭제</button>
-      </div>`).join('')
-    :'<div class="empty-state">저장된 배치 없음</div>';
+  // 옛 + 새 통합 (새 것 우선, 중복 id 제거)
+  const all=getAllSnaps();
+  // 옛 스냅샷 개수가 있으면 마이그레이션 권장 표시
+  const oldCount=S.snapshots.length;
+  const migBanner=oldCount>0 && _adminMode
+    ? `<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;line-height:1.6">
+        ⚠ <b>옛 위치(메인 문서)에 ${oldCount}개의 스냅샷</b>이 남아있습니다. 1MB 한도 회피를 위해 별도 컬렉션으로 옮기세요.<br>
+        <button class="btn btn-pri btn-sm" style="margin-top:6px" onclick="migrateOldSnapshots()">🔄 옛 스냅샷 옮기기</button>
+       </div>`
+    : '';
+  el.innerHTML=migBanner+(all.length
+    ?[...all].reverse().map(sn=>{
+        const isOld=S.snapshots.some(s=>s.id===sn.id) && !S.newSnapshots.some(s=>s.id===sn.id);
+        const oldBadge=isOld?'<span style="font-size:9px;font-weight:700;color:#c2410c;background:#fef3c7;padding:2px 5px;border-radius:3px;margin-left:4px">옛 위치</span>':'';
+        return`<div class="li-item">
+          <div style="flex:1"><div class="li-name">${sn.name}${oldBadge}</div>
+            <div class="li-sub">${sn.date} · 학생 ${sn.students.length}명 · 강의실 ${sn.rooms.length}개</div></div>
+          <button class="btn btn-sec btn-sm" onclick="loadSnap('${sn.id}')">불러오기</button>
+          <button class="btn btn-green btn-sm" onclick="downloadSnapExcel('${sn.id}')">⬇ 다운로드</button>
+          <button class="btn btn-danger btn-xs" onclick="removeSnap('${sn.id}')">삭제</button>
+        </div>`;
+      }).join('')
+    :'<div class="empty-state">저장된 배치 없음</div>');
 }
 function switchMTab(i){
   document.querySelectorAll('.mtab').forEach((t,j)=>t.classList.toggle('on',i===j));
@@ -2427,7 +2547,7 @@ function doSaveSnap(){
     list.innerHTML=S.examTypes.length
       ?S.examTypes.map(et=>{
           const examDate=et.date?` (${et.date})`:'';
-          const already=S.snapshots.find(s=>s.name===et.name);
+          const already=S.snapshots.find(s=>s.name===et.name) || S.newSnapshots.find(s=>s.name===et.name);
           return`<button class="btn btn-sec" style="justify-content:space-between;width:100%;padding:10px 14px;font-size:13px"
             onclick="execSaveSnap('${et.name}')">
             <span>${et.name}${examDate}</span>
@@ -2445,33 +2565,47 @@ function execSaveSnap(name){
   if(!name||!name.trim()){toast('이름을 입력하세요','err');return;}
   name=name.trim();
   closeModal('snap-save-modal');
-  const existIdx=S.snapshots.findIndex(s=>s.name===name);
-  const snap={id:existIdx>=0?S.snapshots[existIdx].id:Date.now().toString(),
-    name,date:new Date().toLocaleDateString('ko-KR'),
+  // 옛+새 모두 검색하여 동일 이름 찾기
+  const existNew=S.newSnapshots.findIndex(s=>s.name===name);
+  const existOld=S.snapshots.findIndex(s=>s.name===name);
+  const snap={
+    id: existNew>=0 ? S.newSnapshots[existNew].id
+       : existOld>=0 ? S.snapshots[existOld].id
+       : Date.now().toString(),
+    name,
+    date:new Date().toLocaleDateString('ko-KR'),
     rooms:JSON.parse(JSON.stringify(S.rooms)),
-    students:JSON.parse(JSON.stringify(S.students))};
-  if(existIdx>=0) S.snapshots[existIdx]=snap;
-  else S.snapshots.push(snap);
-  saveAll();toast(`"${name}" 저장됨`,'ok');
-  if(document.getElementById('settings-modal').classList.contains('on'))renderSnapList();
-
-  // 저장 후 자동 불러오기 (loadSnap에서 설정된 경우)
-  if(_pendingLoadSnapId){
-    const pendingId=_pendingLoadSnapId;
-    _pendingLoadSnapId=null;
-    setTimeout(()=>_execLoadSnap(pendingId),300);
-  }
+    students:JSON.parse(JSON.stringify(S.students))
+  };
+  // 새 컬렉션에 저장
+  saveSnapToNewCollection(snap).then(ok=>{
+    if(!ok){toast(`"${name}" 저장 실패`,'err');return;}
+    // 메모리 반영
+    if(existNew>=0) S.newSnapshots[existNew]=snap;
+    else S.newSnapshots.push(snap);
+    // 옛 위치에 같은 이름이 있다면 그쪽도 갱신 (마이그레이션 안 한 상태)
+    if(existOld>=0 && existNew<0){
+      // 같은 id로 옛것 덮어쓰면 충돌. 그냥 옛것은 두고 새것 추가됨 (목록에선 dedupe로 처리)
+    }
+    toast(`"${name}" 저장됨`,'ok');
+    if(document.getElementById('settings-modal').classList.contains('on'))renderSnapList();
+    if(_pendingLoadSnapId){
+      const pendingId=_pendingLoadSnapId;
+      _pendingLoadSnapId=null;
+      setTimeout(()=>_execLoadSnap(pendingId),300);
+    }
+  });
 }
 
 function loadSnap(id){
-  const sn=S.snapshots.find(s=>s.id===id);if(!sn)return;
+  const sn=findAnySnap(id);if(!sn)return;
   const hasStu=S.students.length>0;
   if(hasStu){
     const choice=confirm(
       `"${sn.name}" 배치를 불러옵니다.\n\n현재 배치를 저장 후 불러오시겠습니까?\n\n[확인] → 현재 배치 저장 후 자동 불러오기\n[취소] → 저장 없이 바로 불러오기`
     );
     if(choice){
-      _pendingLoadSnapId=id; // 저장 완료 후 자동으로 불러올 id 예약
+      _pendingLoadSnapId=id;
       doSaveSnap();
       return;
     }
@@ -2481,18 +2615,32 @@ function loadSnap(id){
 }
 
 function _execLoadSnap(id){
-  const sn=S.snapshots.find(s=>s.id===id);if(!sn)return;
+  const sn=findAnySnap(id);if(!sn)return;
   S.rooms=sn.rooms.map(migrateRoom);S.students=JSON.parse(JSON.stringify(sn.students));
   S.active=S.rooms[0]?.id||null;saveAll();renderAll();
   closeModal('settings-modal');
   toast(`"${sn.name}" 불러오기 완료`,'ok');
 }
-function removeSnap(id){S.snapshots=S.snapshots.filter(s=>s.id!==id);saveAll();renderSnapList();}
+function removeSnap(id){
+  // 새 컬렉션과 옛 배열 모두에서 제거 시도
+  const inNew=S.newSnapshots.some(s=>s.id===id);
+  const inOld=S.snapshots.some(s=>s.id===id);
+  if(inNew){
+    deleteSnapFromNewCollection(id).then(()=>{
+      S.newSnapshots=S.newSnapshots.filter(s=>s.id!==id);
+      if(inOld){S.snapshots=S.snapshots.filter(s=>s.id!==id);saveAll();}
+      renderSnapList();
+    });
+  } else if(inOld){
+    S.snapshots=S.snapshots.filter(s=>s.id!==id);
+    saveAll();renderSnapList();
+  }
+}
 
 /* ═══ 지난배치 강의실별 불러오기 - 공통 적용 함수 ═══ */
 let _lrsSnapId=null, _lrsSnapRoomId=null, _lrsTargetRoomId=null;
 function lrsApply(mode, targetRoomId){
-  const sn=S.snapshots.find(s=>s.id===_lrsSnapId);if(!sn){toast('스냅샷 없음','err');return;}
+  const sn=findAnySnap(_lrsSnapId);if(!sn){toast('스냅샷 없음','err');return;}
   const snapRoom=sn.rooms.find(r=>r.id===_lrsSnapRoomId);if(!snapRoom){toast('스냅샷 강의실 없음','err');return;}
   const target=targetRoomId||_lrsTargetRoomId;
   if(!target){toast('대상 강의실 선택 필요','err');return;}
@@ -2578,7 +2726,7 @@ function renderSnapViewerList(){
     }).join('');
 }
 function renderSnapViewerDetail(snapId){
-  const sn=S.snapshots.find(s=>s.id===snapId);if(!sn)return;
+  const sn=findAnySnap(snapId);if(!sn)return;
   _viewSnapId=snapId;
   if(!_viewSnapRoom||!sn.rooms.find(r=>r.id===_viewSnapRoom)){
     _viewSnapRoom=sn.rooms[0]?.id||null;
@@ -3259,7 +3407,7 @@ init();
 }
 
 function downloadSnapExcel(id){
-  const sn=S.snapshots.find(s=>s.id===id);
+  const sn=findAnySnap(id);
   if(!sn){toast('저장 데이터 없음','err');return;}
   const wb=XLSX.utils.book_new();
 
