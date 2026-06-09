@@ -1531,7 +1531,7 @@ function openUplModal(mode){
       examWrap.style.display='';
       const dd=document.getElementById('upl-exam');
       dd.innerHTML='<option value="">-- 미설정 (기존 값 유지) --</option>'+
-        S.examTypes.map(et=>`<option value="${et.name}">${et.name}${et.date?' ('+et.date+')':''}</option>`).join('');
+        _sortedExams().map(et=>`<option value="${et.name}">${et.name}${et.date?' ('+et.date+')':''}</option>`).join('');
       dd.value='';
     } else {
       examWrap.style.display='none';
@@ -1904,7 +1904,7 @@ function renderMain(){
 function refreshExamDD(room){
   const dd=document.getElementById('exam-dd');
   dd.innerHTML='<option value="">-- 모의고사 선택 --</option>'+
-    S.examTypes.map(et=>`<option value="${et.name}" ${room.examType===et.name?'selected':''}>${et.name}</option>`).join('');
+    _sortedExams().map(et=>`<option value="${et.name}" ${room.examType===et.name?'selected':''}>${et.name}</option>`).join('');
   pendingExam=room.examType||'';
 }
 
@@ -2126,6 +2126,15 @@ function _autoStatsExam(){
   }).sort((a,b)=>new Date(a.date)-new Date(b.date));
   return future.length?future[0].name:'all';
 }
+// 모의고사 목록 정렬: 시행일 최신(미래)부터 위로, 시행일 없는 건 맨 뒤
+function _sortedExams(){
+  return [...S.examTypes].sort((a,b)=>{
+    if(!a.date && !b.date) return 0;
+    if(!a.date) return 1;
+    if(!b.date) return -1;
+    return new Date(b.date) - new Date(a.date); // 최신 우선
+  });
+}
 // 탐구 카운트 행 (클릭 시 명단 모달)
 function _tamguRow(kind,cnt,tagClass){
   const clickable=cnt>0;
@@ -2232,7 +2241,7 @@ function renderStats(){
       sag:rs.filter(s=>(s.탐구||'').includes('사과')).length};
   }).filter(x=>x.cnt>0||x.act>0||x.unassigned>0);
   const examOpts=[`<option value="all" ${_statsExam==='all'?'selected':''}>전체 (모의고사 무관)</option>`,
-    ...S.examTypes.map(et=>`<option value="${et.name}" ${_statsExam===et.name?'selected':''}>${et.name}${et.date?' ('+et.date+')':''}</option>`)].join('');
+    ..._sortedExams().map(et=>`<option value="${et.name}" ${_statsExam===et.name?'selected':''}>${et.name}${et.date?' ('+et.date+')':''}</option>`)].join('');
   const autoSel=_autoStatsExam();
   const isAuto=(_statsExam===autoSel&&_statsExam!=='all');
   // 제외 가능 강의실 목록 (모의고사 필터 적용 전 — 사용자가 어느 모의고사 보든 같은 강의실 목록에서 체크)
@@ -2554,7 +2563,7 @@ function openSaveExamModal(){
       현재 설정: <b>${currentName}</b>
     </div>`:''}
     <div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;padding:2px">
-      ${S.examTypes.map(et=>{
+      ${_sortedExams().map(et=>{
         const isCur=et.name===currentName;
         const otherRooms=S.rooms.filter(r=>r.id!==room.id && r.examType===et.name);
         const conflictBadge=otherRooms.length?`<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;margin-left:6px">${otherRooms.map(r=>r.name).join(',')} 중복</span>`:'';
@@ -2928,7 +2937,8 @@ function renderRoomList(){
 function renderExamList(){
   const el=document.getElementById('et-list');if(!el)return;
   el.innerHTML=S.examTypes.length
-    ?S.examTypes.map((et,i)=>{
+    ?_sortedExams().map((et)=>{
+      const i=S.examTypes.findIndex(x=>x.name===et.name); // 원본 인덱스
       // 이 모의고사가 설정된 강의실 + 그 안의 학생 수
       const usedRooms=S.rooms.filter(r=>r.examType===et.name);
       const usedStuCount=S.students.filter(s=>usedRooms.some(r=>r.id===s.고사장)).length;
@@ -3149,7 +3159,7 @@ function doSaveSnap(){
   const list=document.getElementById('snap-exam-list');
   if(list){
     list.innerHTML=S.examTypes.length
-      ?S.examTypes.map(et=>{
+      ?_sortedExams().map(et=>{
           const examDate=et.date?` (${et.date})`:'';
           const already=S.snapshots.find(s=>s.name===et.name) || S.newSnapshots.find(s=>s.name===et.name);
           return`<button class="btn btn-sec" style="justify-content:space-between;width:100%;padding:10px 14px;font-size:13px"
@@ -3310,12 +3320,14 @@ function renderSnapViewerList(){
   const detail=document.getElementById('snap-view-detail');
   if(!list||!detail) return;
   list.style.display='';detail.style.display='none';
-  if(!S.snapshots.length){
+  // 옛 + 새 모두 가져오기
+  const all=getAllSnaps();
+  if(!all.length){
     list.innerHTML='<div class="empty-state" style="padding:40px">저장된 배치가 없습니다.<br><span style="font-size:11px;color:var(--sl400)">⚙ 설정 → 저장/불러오기 또는 💾 저장 버튼에서 현재 배치를 저장할 수 있습니다.</span></div>';
     return;
   }
   list.innerHTML='<div style="font-size:11px;color:var(--sl500);margin-bottom:10px">저장된 배치를 클릭하면 좌석 배열을 미리볼 수 있습니다.</div>'+
-    [...S.snapshots].reverse().map(sn=>{
+    [...all].reverse().map(sn=>{
       const adminBtns=_adminMode?`
         <button class="btn btn-sec btn-xs" onclick="event.stopPropagation();if(confirm('현재 배치를 \\'${sn.name}\\'로 덮어쓰시겠습니까?')){closeModal('snap-view-modal');loadSnap('${sn.id}');}">현재로 불러오기</button>
         <button class="btn btn-green btn-xs" onclick="event.stopPropagation();downloadSnapExcel('${sn.id}')">⬇ 엑셀</button>`:'';
