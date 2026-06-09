@@ -440,7 +440,13 @@ input,select,textarea{font-family:inherit;cursor:auto}
           </div>
           <!-- 탐구 순서 (드래그) -->
           <div style="margin-bottom:10px">
-            <div style="font-size:10px;font-weight:700;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">정렬: 탐구 순서 (드래그로 변경)</div>
+            <div style="font-size:10px;font-weight:700;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:8px">
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;text-transform:none;letter-spacing:0">
+                <input type="checkbox" id="use-tamgu-sort" checked onchange="toggleTamguSortUI()" style="cursor:pointer">
+                정렬: 탐구 순서
+              </label>
+              <span style="font-weight:400;color:#92400e;text-transform:none;letter-spacing:0">— 체크 해제 시 탐구 무시</span>
+            </div>
             <div id="tamgu-sort" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
               <span class="tamgu-item" data-val="사탐" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">사탐</span>
               <span class="tamgu-item" data-val="과탐" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">과탐</span>
@@ -481,8 +487,8 @@ input,select,textarea{font-family:inherit;cursor:auto}
       <div style="display:flex;justify-content:flex-end;margin-top:8px">
         <button class="btn btn-sec btn-sm" onclick="downloadTemplate()">⬇ 양식 다운로드</button>
       </div>
-      <div class="upl-guide">
-        <strong>✅ 필수 컬럼:</strong> <code>반 · 성별 · 이름 · 학번 · 수학선택 · 탐구 · 반코드 · 고사장 · 자리</code><br>
+      <div class="upl-guide" id="upl-guide">
+        <strong>✅ 필수 컬럼:</strong> <code>반 · 이름 · 학번 · 고사장 · 자리</code><br>
         · <b>자리</b> = 세로(열)순 업로드번호 / 화면 표시는 가로순으로 자동 변환<br>
         · 강의실별 업로드 시 <b>고사장</b>이 해당 강의실과 다른 행은 <b>미배정</b> 처리됩니다
       </div>
@@ -1525,12 +1531,44 @@ function openUplModal(mode){
     document.getElementById('upl-auto-opts').style.display = 'none';
     initTamguDragSort();
   }
+  updateUplGuide(); // 안내 갱신
   document.getElementById('upl-msg').textContent='';
   openModal('upl-modal');
 }
 function toggleAutoAssignUI(){
   const on=document.getElementById('upl-auto')?.checked;
   document.getElementById('upl-auto-opts').style.display = on ? '' : 'none';
+  updateUplGuide();
+}
+function toggleTamguSortUI(){
+  const on=document.getElementById('use-tamgu-sort')?.checked;
+  const sortBox=document.getElementById('tamgu-sort');
+  if(sortBox){
+    sortBox.style.opacity = on ? '1' : '0.4';
+    sortBox.style.pointerEvents = on ? '' : 'none';
+    sortBox.style.background = on ? '' : '#f5f5f5';
+  }
+  updateUplGuide();
+}
+function updateUplGuide(){
+  const guide=document.getElementById('upl-guide');if(!guide)return;
+  const isAuto=_uploadRoomId==='all' && document.getElementById('upl-auto')?.checked;
+  if(isAuto){
+    const useTamgu=document.getElementById('use-tamgu-sort')?.checked!==false;
+    const order=useTamgu?'반코드 → 탐구 → 남녀 → 이름':'반코드 → 남녀 → 이름 (탐구 무시)';
+    guide.innerHTML=`<strong>✅ 필수 컬럼 (자동 배정):</strong> <code>반 · 학번 · 성별 · 성명${useTamgu?' · 탐구1 · 탐구2':''}</code><br>
+      · 정렬 우선순위: <b>${order}</b><br>
+      · <b>반코드/고사장/자리</b>는 매핑·정렬 옵션으로 자동 결정됩니다`;
+  } else if(_uploadRoomId==='all'){
+    guide.innerHTML=`<strong>✅ 필수 컬럼 (전체 업로드):</strong> <code>이름 · 학번 · 고사장 · 자리</code><br>
+      · 권장 컬럼: <code>반 · 성별 · 탐구 · 반코드</code><br>
+      · <b>자리</b> = 세로(열)순 업로드번호 / 화면 표시는 가로순으로 자동 변환`;
+  } else {
+    guide.innerHTML=`<strong>✅ 필수 컬럼 (강의실별 업로드):</strong> <code>이름 · 학번 · 자리</code><br>
+      · 권장 컬럼: <code>반 · 성별 · 탐구 · 반코드</code><br>
+      · <b>자리</b> = 세로(열)순 업로드번호 / 화면 표시는 가로순으로 자동 변환<br>
+      · <b>고사장</b>이 해당 강의실과 다른 행은 <b>미배정</b> 처리됩니다`;
+  }
 }
 /* ═══ 탐구 정렬 드래그 ═══ */
 function initTamguDragSort(){
@@ -1641,6 +1679,7 @@ function uplMsg(html,color){const el=document.getElementById('upl-msg');el.inner
 function autoAssignUpload(rows, map){
   // 1) 옵션 읽기
   const existMode=document.querySelector('input[name="upl-exist"]:checked')?.value||'replace';
+  const useTamgu=document.getElementById('use-tamgu-sort')?.checked!==false; // 기본 true
   const tamguOrder=getTamguOrder(); // ["사탐","과탐","사과"] 같은 배열
   const genderOrder=document.querySelector('input[name="upl-gender"]:checked')?.value||'MF';
   const nameOrder=document.querySelector('input[name="upl-name"]:checked')?.value||'asc';
@@ -1688,16 +1727,18 @@ function autoAssignUpload(rows, map){
     byRoom[s.고사장].push(s);
   });
 
-  // 정렬 비교 함수: 반코드 → 탐구 → 남녀 → 이름
+  // 정렬 비교 함수: 반코드 → 탐구(옵션) → 남녀 → 이름
   const cmp=(a,b)=>{
     // 반코드 (오름차순)
     const c1=String(a.반코드).localeCompare(String(b.반코드));
     if(c1!==0) return c1;
-    // 탐구 (사용자 지정 순서)
-    const at=tamguOrder.indexOf(a.탐구||''); const bt=tamguOrder.indexOf(b.탐구||'');
-    // -1인 경우(목록에 없음)는 뒤로
-    const ai=at<0?999:at, bi=bt<0?999:bt;
-    if(ai!==bi) return ai-bi;
+    // 탐구 (사용자 지정 순서) — 옵션 ON일 때만
+    if(useTamgu){
+      const at=tamguOrder.indexOf(a.탐구||''); const bt=tamguOrder.indexOf(b.탐구||'');
+      // -1인 경우(목록에 없음)는 뒤로
+      const ai=at<0?999:at, bi=bt<0?999:bt;
+      if(ai!==bi) return ai-bi;
+    }
     // 성별
     if(a.성별!==b.성별){
       if(genderOrder==='MF') return a.성별==='남'?-1:(b.성별==='남'?1:a.성별.localeCompare(b.성별));
