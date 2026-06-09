@@ -526,18 +526,22 @@ input,select,textarea{font-family:inherit;cursor:auto}
     </div>
     <div class="mtab-pane" id="stab-5">
       <div style="font-size:11px;color:var(--sl500);margin-bottom:14px;line-height:1.6">
-        반코드별로 어느 강의실에 배정할지 설정합니다. 자동 배정 업로드 시 이 매핑이 사용됩니다.<br>
-        매핑이 없는 반코드는 자동 배정에서 제외되어 <b>미배정</b>으로 들어갑니다.
+        반이름별로 어느 강의실에 배정할지 설정합니다. 자동 배정 업로드 시 이 매핑이 사용됩니다.<br>
+        매핑이 없는 반은 자동 배정에서 제외되어 <b>미배정</b>으로 들어갑니다.
       </div>
       <!-- 신규 추가 -->
       <div style="background:var(--sl50);border:1px solid var(--sl200);border-radius:10px;padding:14px;margin-bottom:14px">
         <div style="font-size:10px;font-weight:700;color:var(--sl500);margin-bottom:9px;text-transform:uppercase;letter-spacing:.05em">새 매핑 추가</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-          <div class="fg" style="margin:0;flex:1;min-width:100px">
-            <label class="fl">반코드</label>
-            <input class="fi" id="brm-ban" placeholder="예: 01" style="padding:6px 9px;font-size:12px">
+          <div class="fg" style="margin:0;flex:1;min-width:80px">
+            <label class="fl">반이름</label>
+            <input class="fi" id="brm-banname" placeholder="예: A1" style="padding:6px 9px;font-size:12px">
           </div>
-          <div class="fg" style="margin:0;flex:2;min-width:140px">
+          <div class="fg" style="margin:0;flex:1;min-width:80px">
+            <label class="fl">반코드</label>
+            <input class="fi" id="brm-bancode" placeholder="예: 71" style="padding:6px 9px;font-size:12px">
+          </div>
+          <div class="fg" style="margin:0;flex:2;min-width:130px">
             <label class="fl">강의실</label>
             <select class="fi" id="brm-room" style="padding:6px 9px;font-size:12px"></select>
           </div>
@@ -548,7 +552,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
         <div style="font-size:10px;font-weight:700;color:var(--sl500);text-transform:uppercase;letter-spacing:.05em">현재 매핑</div>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-ghost btn-xs" onclick="autoFillBanRoomMap()" title="현재 학생 데이터의 고사장 정보로 매핑 자동 생성">📥 현재 배치에서 가져오기</button>
+          <button class="btn btn-ghost btn-xs" onclick="autoFillBanRoomMap()" title="현재 학생 데이터의 반이름+반코드+고사장으로 매핑 자동 생성">📥 현재 배치에서 가져오기</button>
           <button class="btn btn-ghost btn-xs" onclick="clearBanRoomMap()" style="color:#991b1b">↺ 전체 삭제</button>
         </div>
       </div>
@@ -1032,7 +1036,7 @@ let S={
   ngrEvalLastExam:null, // 마지막 선택한 모의고사
   cardPrefix:{ban:'',hak:''}, // 좌석 카드의 반코드/학번 앞에 붙는 접두어
   excludedFromStats:[], // 통계 합산에서 제외할 강의실 ID 목록
-  banRoomMap:{}, // 반코드 → 강의실 id 매핑 (자동 배정용)
+  banRoomMap:{}, // 반이름 → {roomId, banCode} 매핑 (자동 배정용)
 };
 let pendingExam='',_rzId=null,dragSrc=null,_editStuIdx=null,_uploadRoomId='all';
 let _statsExam=null,_pendingPrintAll=false; // _statsExam null이면 첫 진입시 자동 선택
@@ -2373,7 +2377,7 @@ function saveCardPrefix(){
   writeLog('카드 접두어 설정', `반:"${ban}" / 학번:"${hak}"`);
 }
 
-/* ═══ 반코드 ↔ 강의실 매핑 관리 (자동 배정용) ═══ */
+/* ═══ 반이름 ↔ {반코드, 강의실} 매핑 관리 (자동 배정용) ═══ */
 function renderBanRoomMapTab(){
   if(!S.banRoomMap) S.banRoomMap={};
   // 강의실 드롭다운 채우기
@@ -2382,7 +2386,6 @@ function renderBanRoomMapTab(){
     roomSel.innerHTML='<option value="">-- 강의실 선택 --</option>' +
       S.rooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
   }
-  // 목록 렌더링
   renderBanRoomMapList();
 }
 function renderBanRoomMapList(){
@@ -2393,82 +2396,100 @@ function renderBanRoomMapList(){
     el.innerHTML='<div class="empty-state" style="padding:24px">등록된 매핑이 없습니다.<br><span style="font-size:11px;color:var(--sl400)">위에서 추가하거나 "현재 배치에서 가져오기"를 사용하세요.</span></div>';
     return;
   }
-  el.innerHTML=entries.map(([ban,roomId])=>{
-    const room=getRoom(roomId);
-    const roomName=room?room.name:'<span style="color:#dc2626">⚠ 강의실 없음('+roomId+')</span>';
+  // 헤더 행
+  let html=`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:2px solid var(--sl200);background:var(--sl50);font-size:10px;font-weight:700;color:var(--sl500);text-transform:uppercase;letter-spacing:.05em">
+    <span style="min-width:70px">반이름</span>
+    <span style="min-width:70px">반코드</span>
+    <span style="flex:1">강의실</span>
+    <span style="width:32px"></span>
+  </div>`;
+  html+=entries.map(([banName,val])=>{
+    const roomId=(val&&val.roomId)||'';
+    const banCode=(val&&val.banCode)||'';
     const opts='<option value="">-- 미지정 --</option>' +
       S.rooms.map(r=>`<option value="${r.id}" ${r.id===roomId?'selected':''}>${r.name}</option>`).join('');
     return`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--sl100);font-size:13px">
-      <b style="min-width:60px;font-family:monospace;color:#2563eb">${ban}</b>
-      <span style="color:var(--sl400);font-size:11px">→</span>
-      <select onchange="updateBanRoomMap('${ban}',this.value)" style="flex:1;padding:4px 7px;font-size:12px;border:1px solid var(--sl200);border-radius:5px">${opts}</select>
-      <button class="btn btn-danger btn-xs" onclick="removeBanRoomMap('${ban}')" title="이 매핑 삭제">✕</button>
+      <b style="min-width:70px;font-family:monospace;color:#2563eb">${banName}</b>
+      <input type="text" value="${banCode}" onchange="updateBanRoomMapCode('${banName}',this.value)" style="min-width:70px;padding:4px 7px;font-size:12px;border:1px solid var(--sl200);border-radius:5px;font-family:monospace">
+      <select onchange="updateBanRoomMapRoom('${banName}',this.value)" style="flex:1;padding:4px 7px;font-size:12px;border:1px solid var(--sl200);border-radius:5px">${opts}</select>
+      <button class="btn btn-danger btn-xs" onclick="removeBanRoomMap('${banName}')" title="이 매핑 삭제">✕</button>
     </div>`;
   }).join('');
+  el.innerHTML=html;
 }
 function addBanRoomMap(){
-  const ban=(document.getElementById('brm-ban')?.value||'').trim();
+  const banName=(document.getElementById('brm-banname')?.value||'').trim();
+  const banCode=(document.getElementById('brm-bancode')?.value||'').trim();
   const roomId=document.getElementById('brm-room')?.value||'';
-  if(!ban){toast('반코드를 입력하세요','err');return;}
+  if(!banName){toast('반이름을 입력하세요','err');return;}
   if(!roomId){toast('강의실을 선택하세요','err');return;}
   if(!S.banRoomMap) S.banRoomMap={};
-  if(S.banRoomMap[ban] && !confirm(`반코드 "${ban}"은 이미 매핑이 있습니다.\n덮어쓰시겠습니까?`)) return;
-  S.banRoomMap[ban]=roomId;
+  if(S.banRoomMap[banName] && !confirm(`반이름 "${banName}"은 이미 매핑이 있습니다.\n덮어쓰시겠습니까?`)) return;
+  S.banRoomMap[banName]={roomId,banCode};
   saveAll();renderBanRoomMapList();
-  document.getElementById('brm-ban').value='';
+  document.getElementById('brm-banname').value='';
+  document.getElementById('brm-bancode').value='';
   document.getElementById('brm-room').value='';
-  toast(`매핑 추가: ${ban} → ${getRoom(roomId)?.name||roomId}`,'ok');
+  toast(`매핑 추가: ${banName} → ${getRoom(roomId)?.name||roomId}`,'ok');
 }
-function updateBanRoomMap(ban,roomId){
+function updateBanRoomMapRoom(banName,roomId){
   if(!S.banRoomMap) S.banRoomMap={};
+  const existing=S.banRoomMap[banName]||{};
   if(!roomId){
-    delete S.banRoomMap[ban];
+    delete S.banRoomMap[banName];
   } else {
-    S.banRoomMap[ban]=roomId;
+    S.banRoomMap[banName]={...existing,roomId};
   }
   saveAll();renderBanRoomMapList();
 }
-function removeBanRoomMap(ban){
-  if(!confirm(`반코드 "${ban}" 매핑을 삭제하시겠습니까?`)) return;
-  if(S.banRoomMap) delete S.banRoomMap[ban];
+function updateBanRoomMapCode(banName,banCode){
+  if(!S.banRoomMap) S.banRoomMap={};
+  const existing=S.banRoomMap[banName]||{};
+  S.banRoomMap[banName]={...existing,banCode:String(banCode||'').trim()};
+  saveAll();
+}
+function removeBanRoomMap(banName){
+  if(!confirm(`반이름 "${banName}" 매핑을 삭제하시겠습니까?`)) return;
+  if(S.banRoomMap) delete S.banRoomMap[banName];
   saveAll();renderBanRoomMapList();
-  toast(`매핑 삭제: ${ban}`,'ok');
+  toast(`매핑 삭제: ${banName}`,'ok');
 }
 function clearBanRoomMap(){
-  if(!confirm('모든 반코드 매핑을 삭제하시겠습니까?')) return;
+  if(!confirm('모든 매핑을 삭제하시겠습니까?')) return;
   S.banRoomMap={};
   saveAll();renderBanRoomMapList();
   toast('매핑 전체 삭제됨','ok');
 }
-// 현재 학생들의 (반코드, 고사장) 조합으로 자동 매핑 생성
+// 현재 학생들의 (반이름, 반코드, 고사장) 조합으로 자동 매핑 생성
 function autoFillBanRoomMap(){
   if(!S.students.length){toast('현재 학생 데이터 없음','err');return;}
   const newMap={};
   const conflicts=[];
   S.students.forEach(s=>{
-    const ban=(s.반코드||'').trim();
+    const banName=(s.반||'').trim();
+    const banCode=(s.반코드||'').trim();
     const roomId=s.고사장;
-    if(!ban || !roomId) return;
+    if(!banName || !roomId) return;
     if(!getRoom(roomId)) return; // 강의실 없으면 무시
-    if(newMap[ban] && newMap[ban]!==roomId){
-      // 같은 반코드인데 강의실이 다른 학생 존재 — 충돌
-      if(!conflicts.includes(ban)) conflicts.push(ban);
+    if(newMap[banName] && (newMap[banName].roomId!==roomId || newMap[banName].banCode!==banCode)){
+      // 같은 반이름인데 강의실/반코드가 다른 학생 존재 — 충돌
+      if(!conflicts.includes(banName)) conflicts.push(banName);
     } else {
-      newMap[ban]=roomId;
+      newMap[banName]={roomId,banCode};
     }
   });
   const count=Object.keys(newMap).length;
-  if(!count){toast('생성할 매핑 없음 (반코드/고사장 정보 부족)','err');return;}
+  if(!count){toast('생성할 매핑 없음 (반이름/고사장 정보 부족)','err');return;}
   let msg=`현재 학생 데이터에서 ${count}개의 매핑을 생성합니다.`;
   if(conflicts.length){
-    msg+=`\n\n⚠ 한 반코드인데 서로 다른 강의실에 흩어진 경우 (${conflicts.length}개):\n${conflicts.join(', ')}\n→ 첫 번째 학생의 고사장만 매핑됨`;
+    msg+=`\n\n⚠ 한 반이름인데 서로 다른 강의실/반코드 (${conflicts.length}개):\n${conflicts.join(', ')}\n→ 첫 번째 학생 기준으로 매핑됨`;
   }
   msg+='\n\n계속하시겠습니까? (기존 매핑은 덮어씌워집니다)';
   if(!confirm(msg)) return;
   S.banRoomMap=newMap;
   saveAll();renderBanRoomMapList();
   toast(`✅ ${count}개 매핑 생성 완료`,'ok');
-  writeLog('반코드 매핑 자동생성', `${count}개`);
+  writeLog('반-강의실 매핑 자동생성', `${count}개`);
 }
 
 function renderRoomList(){
