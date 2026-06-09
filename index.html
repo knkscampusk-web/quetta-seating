@@ -453,6 +453,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
       <div class="mtab" onclick="switchMTab(2)">💾 저장/불러오기</div>
       <div class="mtab" onclick="switchMTab(3)">📋 활동 로그</div>
       <div class="mtab" onclick="switchMTab(4)">🎨 표시 설정</div>
+      <div class="mtab" onclick="switchMTab(5)">🗂 반코드 매핑</div>
     </div>
     <div class="mtab-pane on" id="stab-0">
       <div style="background:var(--sl50);border:1px solid var(--sl200);border-radius:10px;padding:13px 14px;margin-bottom:14px">
@@ -522,6 +523,36 @@ input,select,textarea{font-family:inherit;cursor:auto}
       <!-- 미리보기 -->
       <div style="font-size:10px;font-weight:700;color:var(--sl500);margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em">미리보기</div>
       <div id="pfx-preview" style="display:flex;gap:10px;flex-wrap:wrap;padding:14px;background:var(--sl50);border:1px solid var(--sl200);border-radius:10px;align-items:flex-start"></div>
+    </div>
+    <div class="mtab-pane" id="stab-5">
+      <div style="font-size:11px;color:var(--sl500);margin-bottom:14px;line-height:1.6">
+        반코드별로 어느 강의실에 배정할지 설정합니다. 자동 배정 업로드 시 이 매핑이 사용됩니다.<br>
+        매핑이 없는 반코드는 자동 배정에서 제외되어 <b>미배정</b>으로 들어갑니다.
+      </div>
+      <!-- 신규 추가 -->
+      <div style="background:var(--sl50);border:1px solid var(--sl200);border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--sl500);margin-bottom:9px;text-transform:uppercase;letter-spacing:.05em">새 매핑 추가</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fg" style="margin:0;flex:1;min-width:100px">
+            <label class="fl">반코드</label>
+            <input class="fi" id="brm-ban" placeholder="예: 01" style="padding:6px 9px;font-size:12px">
+          </div>
+          <div class="fg" style="margin:0;flex:2;min-width:140px">
+            <label class="fl">강의실</label>
+            <select class="fi" id="brm-room" style="padding:6px 9px;font-size:12px"></select>
+          </div>
+          <button class="btn btn-pri btn-sm" onclick="addBanRoomMap()">추가</button>
+        </div>
+      </div>
+      <!-- 현재 매핑 목록 -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+        <div style="font-size:10px;font-weight:700;color:var(--sl500);text-transform:uppercase;letter-spacing:.05em">현재 매핑</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-xs" onclick="autoFillBanRoomMap()" title="현재 학생 데이터의 고사장 정보로 매핑 자동 생성">📥 현재 배치에서 가져오기</button>
+          <button class="btn btn-ghost btn-xs" onclick="clearBanRoomMap()" style="color:#991b1b">↺ 전체 삭제</button>
+        </div>
+      </div>
+      <div id="brm-list" style="border:1px solid var(--sl200);border-radius:8px;max-height:400px;overflow-y:auto"></div>
     </div>
   </div>
 </div>
@@ -1001,6 +1032,7 @@ let S={
   ngrEvalLastExam:null, // 마지막 선택한 모의고사
   cardPrefix:{ban:'',hak:''}, // 좌석 카드의 반코드/학번 앞에 붙는 접두어
   excludedFromStats:[], // 통계 합산에서 제외할 강의실 ID 목록
+  banRoomMap:{}, // 반코드 → 강의실 id 매핑 (자동 배정용)
 };
 let pendingExam='',_rzId=null,dragSrc=null,_editStuIdx=null,_uploadRoomId='all';
 let _statsExam=null,_pendingPrintAll=false; // _statsExam null이면 첫 진입시 자동 선택
@@ -1147,6 +1179,7 @@ function pushToFirebase(immediate){
       ngrEvalLastExam:S.ngrEvalLastExam||null,
       cardPrefix:S.cardPrefix||{ban:'',hak:''},
       excludedFromStats:S.excludedFromStats||[],
+      banRoomMap:S.banRoomMap||{},
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
       .then(()=>{
         if(stat){stat.textContent='✓ 저장됨';stat.style.color='#86efac';}
@@ -1202,6 +1235,7 @@ function load(){
       if(d.cardPrefix)        S.cardPrefix={ban:d.cardPrefix.ban||'',hak:d.cardPrefix.hak||''};
       if(d.excludedFromStats) S.excludedFromStats=d.excludedFromStats;
       else                    S.excludedFromStats=S.excludedFromStats||[];
+      if(d.banRoomMap)        S.banRoomMap=d.banRoomMap;
       // 첫 접속 시(active 비었거나 유효하지 않을 때): 통계 탭
       if(!S.active||(S.active!=='__stats__'&&!S.rooms.find(r=>r.id===S.active))){
         S.active='__stats__';
@@ -1250,6 +1284,35 @@ function migrateFromLocalStorage(){
   }
   return false;
 }
+/* ═══ 탐구 자동 분류 (탐구1, 탐구2 → 사탐/과탐/사과) ═══ */
+const _GWATAM_KEYWORDS=['물리','화학','생명과학','지구과학'];
+const _SATAM_KEYWORDS=['사회문화','생활과윤리','윤리와사상','세계지리','동아시아사','한국지리','세계사','정치와법','정치와 법','경제'];
+function _classifySubject(name){
+  if(!name) return null; // 빈 값
+  const s=String(name).trim();
+  if(!s) return null;
+  // 과탐 키워드 포함?
+  if(_GWATAM_KEYWORDS.some(k=>s.includes(k))) return '과탐';
+  // 사탐 키워드 포함?
+  if(_SATAM_KEYWORDS.some(k=>s.includes(k))) return '사탐';
+  return '?'; // 미분류
+}
+// 두 과목을 보고 사탐/과탐/사과 중 하나로 분류
+function classifyTamgu(s1, s2){
+  const c1=_classifySubject(s1);
+  const c2=_classifySubject(s2);
+  // 둘 다 비어있음 → ''
+  if(!c1 && !c2) return '';
+  // 한쪽만 있는 경우
+  if(c1 && !c2) return c1==='?' ? '' : c1;
+  if(!c1 && c2) return c2==='?' ? '' : c2;
+  // 둘 다 있음
+  if(c1==='?' || c2==='?') return ''; // 둘 중 하나라도 미분류면 빈 값
+  if(c1==='과탐' && c2==='과탐') return '과탐';
+  if(c1==='사탐' && c2==='사탐') return '사탐';
+  return '사과'; // 사탐+과탐 조합
+}
+
 function migrateRoom(r){
   if(!r.cells) r.cells=mkCells(r.rows||8,r.cols||9);
   r.cells.forEach(c=>{if(c.state===undefined){c.state=(c.on===false)?'void':'active';delete c.on;}});
@@ -2264,7 +2327,7 @@ function insertBeforeStu(){
 
 /* ═══ SETTINGS ═══ */
 function openSettings(){renderSettingsContent();openModal('settings-modal');}
-function renderSettingsContent(){renderRoomList();renderExamList();renderSnapList();renderCardPrefixTab();}
+function renderSettingsContent(){renderRoomList();renderExamList();renderSnapList();renderCardPrefixTab();renderBanRoomMapTab();}
 
 /* ═══ 좌석 카드 접두어 설정 ═══ */
 function renderCardPrefixTab(){
@@ -2309,6 +2372,105 @@ function saveCardPrefix(){
   toast('좌석 카드 접두어 저장됨','ok');
   writeLog('카드 접두어 설정', `반:"${ban}" / 학번:"${hak}"`);
 }
+
+/* ═══ 반코드 ↔ 강의실 매핑 관리 (자동 배정용) ═══ */
+function renderBanRoomMapTab(){
+  if(!S.banRoomMap) S.banRoomMap={};
+  // 강의실 드롭다운 채우기
+  const roomSel=document.getElementById('brm-room');
+  if(roomSel){
+    roomSel.innerHTML='<option value="">-- 강의실 선택 --</option>' +
+      S.rooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  }
+  // 목록 렌더링
+  renderBanRoomMapList();
+}
+function renderBanRoomMapList(){
+  const el=document.getElementById('brm-list');if(!el)return;
+  const map=S.banRoomMap||{};
+  const entries=Object.entries(map).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+  if(!entries.length){
+    el.innerHTML='<div class="empty-state" style="padding:24px">등록된 매핑이 없습니다.<br><span style="font-size:11px;color:var(--sl400)">위에서 추가하거나 "현재 배치에서 가져오기"를 사용하세요.</span></div>';
+    return;
+  }
+  el.innerHTML=entries.map(([ban,roomId])=>{
+    const room=getRoom(roomId);
+    const roomName=room?room.name:'<span style="color:#dc2626">⚠ 강의실 없음('+roomId+')</span>';
+    const opts='<option value="">-- 미지정 --</option>' +
+      S.rooms.map(r=>`<option value="${r.id}" ${r.id===roomId?'selected':''}>${r.name}</option>`).join('');
+    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--sl100);font-size:13px">
+      <b style="min-width:60px;font-family:monospace;color:#2563eb">${ban}</b>
+      <span style="color:var(--sl400);font-size:11px">→</span>
+      <select onchange="updateBanRoomMap('${ban}',this.value)" style="flex:1;padding:4px 7px;font-size:12px;border:1px solid var(--sl200);border-radius:5px">${opts}</select>
+      <button class="btn btn-danger btn-xs" onclick="removeBanRoomMap('${ban}')" title="이 매핑 삭제">✕</button>
+    </div>`;
+  }).join('');
+}
+function addBanRoomMap(){
+  const ban=(document.getElementById('brm-ban')?.value||'').trim();
+  const roomId=document.getElementById('brm-room')?.value||'';
+  if(!ban){toast('반코드를 입력하세요','err');return;}
+  if(!roomId){toast('강의실을 선택하세요','err');return;}
+  if(!S.banRoomMap) S.banRoomMap={};
+  if(S.banRoomMap[ban] && !confirm(`반코드 "${ban}"은 이미 매핑이 있습니다.\n덮어쓰시겠습니까?`)) return;
+  S.banRoomMap[ban]=roomId;
+  saveAll();renderBanRoomMapList();
+  document.getElementById('brm-ban').value='';
+  document.getElementById('brm-room').value='';
+  toast(`매핑 추가: ${ban} → ${getRoom(roomId)?.name||roomId}`,'ok');
+}
+function updateBanRoomMap(ban,roomId){
+  if(!S.banRoomMap) S.banRoomMap={};
+  if(!roomId){
+    delete S.banRoomMap[ban];
+  } else {
+    S.banRoomMap[ban]=roomId;
+  }
+  saveAll();renderBanRoomMapList();
+}
+function removeBanRoomMap(ban){
+  if(!confirm(`반코드 "${ban}" 매핑을 삭제하시겠습니까?`)) return;
+  if(S.banRoomMap) delete S.banRoomMap[ban];
+  saveAll();renderBanRoomMapList();
+  toast(`매핑 삭제: ${ban}`,'ok');
+}
+function clearBanRoomMap(){
+  if(!confirm('모든 반코드 매핑을 삭제하시겠습니까?')) return;
+  S.banRoomMap={};
+  saveAll();renderBanRoomMapList();
+  toast('매핑 전체 삭제됨','ok');
+}
+// 현재 학생들의 (반코드, 고사장) 조합으로 자동 매핑 생성
+function autoFillBanRoomMap(){
+  if(!S.students.length){toast('현재 학생 데이터 없음','err');return;}
+  const newMap={};
+  const conflicts=[];
+  S.students.forEach(s=>{
+    const ban=(s.반코드||'').trim();
+    const roomId=s.고사장;
+    if(!ban || !roomId) return;
+    if(!getRoom(roomId)) return; // 강의실 없으면 무시
+    if(newMap[ban] && newMap[ban]!==roomId){
+      // 같은 반코드인데 강의실이 다른 학생 존재 — 충돌
+      if(!conflicts.includes(ban)) conflicts.push(ban);
+    } else {
+      newMap[ban]=roomId;
+    }
+  });
+  const count=Object.keys(newMap).length;
+  if(!count){toast('생성할 매핑 없음 (반코드/고사장 정보 부족)','err');return;}
+  let msg=`현재 학생 데이터에서 ${count}개의 매핑을 생성합니다.`;
+  if(conflicts.length){
+    msg+=`\n\n⚠ 한 반코드인데 서로 다른 강의실에 흩어진 경우 (${conflicts.length}개):\n${conflicts.join(', ')}\n→ 첫 번째 학생의 고사장만 매핑됨`;
+  }
+  msg+='\n\n계속하시겠습니까? (기존 매핑은 덮어씌워집니다)';
+  if(!confirm(msg)) return;
+  S.banRoomMap=newMap;
+  saveAll();renderBanRoomMapList();
+  toast(`✅ ${count}개 매핑 생성 완료`,'ok');
+  writeLog('반코드 매핑 자동생성', `${count}개`);
+}
+
 function renderRoomList(){
   const el=document.getElementById('rmgr-list');if(!el)return;
   el.innerHTML=S.rooms.map(r=>`
