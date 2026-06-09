@@ -423,6 +423,55 @@ input,select,textarea{font-family:inherit;cursor:auto}
         <select id="upl-exam" class="fi" style="font-size:12px;padding:6px 9px"></select>
         <div style="font-size:10px;color:#166534;margin-top:5px;line-height:1.5">선택 시 업로드된 학생의 모든 강의실에 이 모의고사가 자동 지정됩니다.</div>
       </div>
+      <!-- 자동 배정 모드 -->
+      <div id="upl-auto-wrap" style="padding:10px 12px;background:#fef3c7;border-radius:7px;margin-bottom:10px;border:1px solid #fde68a">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#92400e;cursor:pointer;user-select:none">
+          <input type="checkbox" id="upl-auto" onchange="toggleAutoAssignUI()" style="width:16px;height:16px;cursor:pointer">
+          🎯 자동 배정 모드 (반→강의실 매핑 + 정렬 기준으로 자동 배치)
+        </label>
+        <div id="upl-auto-opts" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed #fde68a">
+          <!-- 기존 데이터 처리 -->
+          <div style="margin-bottom:10px">
+            <div style="font-size:10px;font-weight:700;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">기존 학생 데이터</div>
+            <div style="display:flex;gap:12px;font-size:12px;color:#451a03">
+              <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="upl-exist" value="replace" checked> 덮어쓰기 (모두 삭제 후 새로 배치)</label>
+              <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="upl-exist" value="add"> 추가 (기존 유지 + 새 학생 추가)</label>
+            </div>
+          </div>
+          <!-- 탐구 순서 (드래그) -->
+          <div style="margin-bottom:10px">
+            <div style="font-size:10px;font-weight:700;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">정렬: 탐구 순서 (드래그로 변경)</div>
+            <div id="tamgu-sort" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <span class="tamgu-item" data-val="사탐" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">사탐</span>
+              <span class="tamgu-item" data-val="과탐" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">과탐</span>
+              <span class="tamgu-item" data-val="사과" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">사과</span>
+              <span style="font-size:10px;color:#92400e;margin-left:4px">← 위치를 드래그해서 변경</span>
+            </div>
+          </div>
+          <!-- 남녀 / 이름 -->
+          <div style="display:flex;gap:14px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">남녀</div>
+              <div style="display:flex;gap:10px;font-size:12px;color:#451a03">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="upl-gender" value="MF" checked> 남 → 여</label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="upl-gender" value="FM"> 여 → 남</label>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">이름</div>
+              <div style="display:flex;gap:10px;font-size:12px;color:#451a03">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="upl-name" value="asc" checked> 가 → 하 (오름)</label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="upl-name" value="desc"> 하 → 가 (내림)</label>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:10px;color:#92400e;margin-top:8px;line-height:1.6">
+            💡 정렬 우선순위: 반코드 → 탐구 → 남녀 → 이름<br>
+            💡 컬럼: 탐구1·탐구2 (있으면 자동분류) 또는 탐구 (있으면 그대로)<br>
+            💡 매핑 없는 반은 미배정으로 처리됩니다
+          </div>
+        </div>
+      </div>
       <div class="upl" onclick="document.getElementById('fi').click()">
         <div style="font-size:26px;margin-bottom:6px">📊</div>
         <div style="font-weight:700;font-size:14px;margin-bottom:2px">클릭하여 파일 선택</div>
@@ -550,7 +599,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
       </div>
       <!-- 현재 매핑 목록 -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
-        <div style="font-size:10px;font-weight:700;color:var(--sl500);text-transform:uppercase;letter-spacing:.05em">현재 매핑</div>
+        <div style="font-size:10px;font-weight:700;color:var(--sl500);text-transform:uppercase;letter-spacing:.05em">현재 매핑 <span id="brm-count" style="font-weight:600;color:var(--sl400);text-transform:none;letter-spacing:0;margin-left:4px"></span></div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-xs" onclick="autoFillBanRoomMap()" title="현재 학생 데이터의 반이름+반코드+고사장으로 매핑 자동 생성">📥 현재 배치에서 가져오기</button>
           <button class="btn btn-ghost btn-xs" onclick="clearBanRoomMap()" style="color:#991b1b">↺ 전체 삭제</button>
@@ -1468,8 +1517,50 @@ function openUplModal(mode){
       examWrap.style.display='none';
     }
   }
+  // 자동 배정 모드 UI: 전체 업로드일 때만 보이고, 기본 OFF
+  const autoWrap=document.getElementById('upl-auto-wrap');
+  if(autoWrap){
+    autoWrap.style.display = (mode==='all') ? '' : 'none';
+    document.getElementById('upl-auto').checked = false;
+    document.getElementById('upl-auto-opts').style.display = 'none';
+    initTamguDragSort();
+  }
   document.getElementById('upl-msg').textContent='';
   openModal('upl-modal');
+}
+function toggleAutoAssignUI(){
+  const on=document.getElementById('upl-auto')?.checked;
+  document.getElementById('upl-auto-opts').style.display = on ? '' : 'none';
+}
+/* ═══ 탐구 정렬 드래그 ═══ */
+function initTamguDragSort(){
+  const items=document.querySelectorAll('#tamgu-sort .tamgu-item');
+  let dragged=null;
+  items.forEach(item=>{
+    item.ondragstart=e=>{
+      dragged=item;
+      e.dataTransfer.effectAllowed='move';
+      item.style.opacity='0.4';
+    };
+    item.ondragend=()=>{
+      if(dragged) dragged.style.opacity='1';
+      dragged=null;
+    };
+    item.ondragover=e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; };
+    item.ondrop=e=>{
+      e.preventDefault();
+      if(!dragged || dragged===item) return;
+      const list=item.parentNode;
+      const all=[...list.querySelectorAll('.tamgu-item')];
+      const dIdx=all.indexOf(dragged);
+      const tIdx=all.indexOf(item);
+      if(dIdx < tIdx) item.after(dragged);
+      else item.before(dragged);
+    };
+  });
+}
+function getTamguOrder(){
+  return [...document.querySelectorAll('#tamgu-sort .tamgu-item')].map(el=>el.dataset.val);
 }
 function handleUpload(e){
   const f=e.target.files[0];if(!f)return;
@@ -1481,14 +1572,29 @@ function handleUpload(e){
       const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});
       if(!rows.length){uplMsg('❌ 빈 시트','#7f1d1d');return;}
       const hdrs=Object.keys(rows[0]);
+      // 자동 배정 모드 체크
+      const isAuto=_uploadRoomId==='all' && document.getElementById('upl-auto')?.checked;
+      // AL: 자동 모드면 탐구1/탐구2도 인식, 고사장/자리는 선택사항
       const AL={반:['반'],성별:['성별'],이름:['이름','성명'],학번:['학번'],
-        수학선택:['수학선택','수학'],탐구:['탐구','탐구선택'],반코드:['반코드'],
-        고사장:['고사장','강의실','시험실'],자리:['자리','좌석','좌석번호']};
+        수학선택:['수학선택','수학'],탐구:['탐구','탐구선택'],탐구1:['탐구1'],탐구2:['탐구2'],
+        반코드:['반코드'],고사장:['고사장','강의실','시험실'],자리:['자리','좌석','좌석번호']};
       const map={};
       for(const[k,al]of Object.entries(AL)) map[k]=hdrs.find(h=>al.some(a=>h.trim()===a||h.trim().startsWith(a)));
-      const req=_uploadRoomId==='all'?['이름','학번','고사장','자리']:['이름','학번','자리'];
+      // 필수 컬럼: 자동 모드면 반/이름/학번만 / 일반 모드면 기존대로
+      const req=isAuto
+        ? ['반','이름','학번']
+        : (_uploadRoomId==='all'?['이름','학번','고사장','자리']:['이름','학번','자리']);
       const miss=req.filter(k=>!map[k]);
       if(miss.length){uplMsg(`❌ 컬럼 없음: ${miss.join(', ')}<br><small>헤더: ${hdrs.slice(0,12).join(' · ')}</small>`,'#7f1d1d');return;}
+
+      // === 자동 배정 모드 분기 ===
+      if(isAuto){
+        autoAssignUpload(rows, map);
+        e.target.value='';
+        return;
+      }
+
+      // === 기존 흐름 (수동 배정) ===
       const parsed=rows.filter(r=>r[map.이름]&&r[map.학번]).map((r,i)=>{
         const excelRoom=map[map.고사장]!==undefined?String(r[map.고사장]||'').trim():'';
         const targetRoom=_uploadRoomId!=='all'?_uploadRoomId:excelRoom;
@@ -1530,13 +1636,150 @@ function handleUpload(e){
   rd.readAsArrayBuffer(f);
 }
 function uplMsg(html,color){const el=document.getElementById('upl-msg');el.innerHTML=html;el.style.color=color;}
+
+/* ═══ 자동 배정 업로드 (반→강의실 매핑 + 정렬 기준으로 좌석 자동 채움) ═══ */
+function autoAssignUpload(rows, map){
+  // 1) 옵션 읽기
+  const existMode=document.querySelector('input[name="upl-exist"]:checked')?.value||'replace';
+  const tamguOrder=getTamguOrder(); // ["사탐","과탐","사과"] 같은 배열
+  const genderOrder=document.querySelector('input[name="upl-gender"]:checked')?.value||'MF';
+  const nameOrder=document.querySelector('input[name="upl-name"]:checked')?.value||'asc';
+  const selExam=document.getElementById('upl-exam')?.value||'';
+
+  if(!S.banRoomMap || !Object.keys(S.banRoomMap).length){
+    if(!confirm('⚠ 반→강의실 매핑이 비어있습니다.\n모든 학생이 미배정 상태로 들어갑니다.\n\n계속하시겠습니까?\n\n(설정 → 반코드 매핑에서 먼저 등록 권장)')) return;
+  }
+
+  // 2) 엑셀 행 → 학생 객체 (반/이름/학번 모두 있어야)
+  const newStudents = rows.filter(r=>r[map.반]&&r[map.이름]&&r[map.학번]).map((r,i)=>{
+    const banName=String(r[map.반]||'').trim();
+    const banCodeExcel=map.반코드?String(r[map.반코드]||'').trim():'';
+    const mapping=(S.banRoomMap||{})[banName]||{};
+    const roomId=mapping.roomId||'';
+    const banCode=banCodeExcel||mapping.banCode||'';
+    // 탐구 분류: 탐구1/탐구2가 있으면 자동 분류, 없으면 탐구 그대로
+    let tamgu='';
+    if(map.탐구1 || map.탐구2){
+      const t1=map.탐구1?String(r[map.탐구1]||'').trim():'';
+      const t2=map.탐구2?String(r[map.탐구2]||'').trim():'';
+      tamgu=classifyTamgu(t1,t2);
+    } else if(map.탐구){
+      tamgu=String(r[map.탐구]||'').trim();
+    }
+    return {
+      _i:0, // 후처리
+      반:banName,
+      성별:String(r[map.성별]||'').trim(),
+      이름:String(r[map.이름]||'').trim(),
+      학번:String(r[map.학번]||'').trim(),
+      수학선택:map.수학선택?String(r[map.수학선택]||'').trim():'',
+      탐구:tamgu,
+      반코드:banCode,
+      고사장:roomId,
+      자리:0, // 좌석 배정 후 설정
+    };
+  });
+
+  // 3) 강의실별 그룹화 + 정렬
+  const byRoom={};
+  const unmapped=[]; // 매핑 없는 학생 (미배정)
+  newStudents.forEach(s=>{
+    if(!s.고사장){ unmapped.push(s); return; }
+    if(!byRoom[s.고사장]) byRoom[s.고사장]=[];
+    byRoom[s.고사장].push(s);
+  });
+
+  // 정렬 비교 함수: 반코드 → 탐구 → 남녀 → 이름
+  const cmp=(a,b)=>{
+    // 반코드 (오름차순)
+    const c1=String(a.반코드).localeCompare(String(b.반코드));
+    if(c1!==0) return c1;
+    // 탐구 (사용자 지정 순서)
+    const at=tamguOrder.indexOf(a.탐구||''); const bt=tamguOrder.indexOf(b.탐구||'');
+    // -1인 경우(목록에 없음)는 뒤로
+    const ai=at<0?999:at, bi=bt<0?999:bt;
+    if(ai!==bi) return ai-bi;
+    // 성별
+    if(a.성별!==b.성별){
+      if(genderOrder==='MF') return a.성별==='남'?-1:(b.성별==='남'?1:a.성별.localeCompare(b.성별));
+      else return a.성별==='여'?-1:(b.성별==='여'?1:a.성별.localeCompare(b.성별));
+    }
+    // 이름
+    const nc=String(a.이름).localeCompare(String(b.이름));
+    return nameOrder==='asc'?nc:-nc;
+  };
+
+  // 4) 각 강의실에서 정렬 후 좌석 배정
+  const seatShortage=[]; // 좌석 부족으로 미배정
+  Object.keys(byRoom).forEach(roomId=>{
+    const room=getRoom(roomId);
+    if(!room){
+      // 매핑은 있는데 강의실이 사라진 경우
+      byRoom[roomId].forEach(s=>{ s.고사장=''; unmapped.push(s); });
+      return;
+    }
+    byRoom[roomId].sort(cmp);
+    // 활성 좌석을 업로드번호(n) 작은 순으로 정렬
+    const activeCells=room.cells.filter(c=>c.state==='active').sort((a,b)=>a.n-b.n);
+    byRoom[roomId].forEach((s,idx)=>{
+      if(idx<activeCells.length){
+        s.자리=activeCells[idx].n;
+      } else {
+        s.자리=0; s.고사장='';
+        seatShortage.push(s);
+      }
+    });
+  });
+
+  // 5) 기존 데이터 처리
+  let finalStudents;
+  if(existMode==='replace'){
+    finalStudents=newStudents;
+  } else { // add
+    finalStudents=[...S.students, ...newStudents];
+  }
+  finalStudents.forEach((s,i)=>s._i=i);
+  S.students=finalStudents;
+
+  // 6) 모의고사 선택값 적용 (선택사항)
+  if(selExam){
+    const targetRoomIds=[...new Set(newStudents.map(s=>s.고사장).filter(Boolean))];
+    targetRoomIds.forEach(rid=>{
+      const room=getRoom(rid);
+      if(room) room.examType=selExam;
+    });
+  }
+
+  saveAll();renderAll();closeModal('upl-modal');
+
+  // 7) 결과 안내
+  const totalAssigned=newStudents.filter(s=>s.고사장).length;
+  let msg=`✅ 자동 배정 완료\n총 ${newStudents.length}명 처리\n· 배정: ${totalAssigned}명\n· 미배정: ${newStudents.length-totalAssigned}명`;
+  if(unmapped.length) msg+=`\n  └ 매핑 없음: ${unmapped.length}명`;
+  if(seatShortage.length) msg+=`\n  └ 좌석 부족: ${seatShortage.length}명`;
+  if(selExam) msg+=`\n· 모의고사: ${selExam}`;
+  alert(msg);
+  toast(`✅ 자동 배정 ${totalAssigned}명 · 미배정 ${newStudents.length-totalAssigned}명`,'ok');
+  writeLog('자동 배정 업로드', `${newStudents.length}명 (배정 ${totalAssigned}, 미배정 ${newStudents.length-totalAssigned})`);
+}
+
 function downloadTemplate(){
+  const isAuto=document.getElementById('upl-auto')?.checked;
   const wb=XLSX.utils.book_new();
-  const hdrs=['반','성별','이름','학번','수학선택','탐구','반코드','고사장','자리'];
-  const ws=XLSX.utils.aoa_to_sheet([hdrs,['X2','남','홍길동','5001','미적분','사탐','71','101호','1']]);
-  ws['!cols']=hdrs.map(()=>({wch:14}));
-  XLSX.utils.book_append_sheet(wb,ws,'RawData');
-  XLSX.writeFile(wb,_uploadRoomId!=='all'?`${_uploadRoomId}_업로드양식.xlsx`:'좌석배치_업로드양식.xlsx');
+  if(isAuto){
+    // 자동 배정 모드 양식: 반/성별/이름/학번/수학선택/탐구1/탐구2/반코드
+    const hdrs=['반','성별','이름','학번','수학선택','탐구1','탐구2','반코드'];
+    const ws=XLSX.utils.aoa_to_sheet([hdrs,['A1','남','홍길동','01','미적분','물리','화학','71'],['A1','여','김영희','02','확률과통계','사회문화','생활과윤리','71']]);
+    ws['!cols']=hdrs.map(()=>({wch:14}));
+    XLSX.utils.book_append_sheet(wb,ws,'RawData');
+    XLSX.writeFile(wb,'좌석배치_자동배정양식.xlsx');
+  } else {
+    const hdrs=['반','성별','이름','학번','수학선택','탐구','반코드','고사장','자리'];
+    const ws=XLSX.utils.aoa_to_sheet([hdrs,['X2','남','홍길동','5001','미적분','사탐','71','101호','1']]);
+    ws['!cols']=hdrs.map(()=>({wch:14}));
+    XLSX.utils.book_append_sheet(wb,ws,'RawData');
+    XLSX.writeFile(wb,_uploadRoomId!=='all'?`${_uploadRoomId}_업로드양식.xlsx`:'좌석배치_업로드양식.xlsx');
+  }
 }
 
 /* ═══ RENDER ═══ */
@@ -2392,6 +2635,9 @@ function renderBanRoomMapList(){
   const el=document.getElementById('brm-list');if(!el)return;
   const map=S.banRoomMap||{};
   const entries=Object.entries(map).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+  // 개수 표시
+  const cntEl=document.getElementById('brm-count');
+  if(cntEl) cntEl.textContent=entries.length?`(${entries.length}개 반)`:'';
   if(!entries.length){
     el.innerHTML='<div class="empty-state" style="padding:24px">등록된 매핑이 없습니다.<br><span style="font-size:11px;color:var(--sl400)">위에서 추가하거나 "현재 배치에서 가져오기"를 사용하세요.</span></div>';
     return;
