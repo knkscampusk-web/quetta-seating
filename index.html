@@ -835,6 +835,20 @@ input,select,textarea{font-family:inherit;cursor:auto}
   </div>
 </div>
 
+<!-- 학생 명단 표시 모달 (탐구 미지정 등 카운트 클릭 시) -->
+<div class="overlay" id="stus-list-modal" onclick="ovClose(event,'stus-list-modal')">
+  <div class="modal modal-md">
+    <div class="mhd">
+      <span class="mhd-title" id="stus-list-title">학생 명단</span>
+      <button class="btn btn-ghost" onclick="closeModal('stus-list-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div id="stus-list-info" style="font-size:11px;color:var(--sl400);margin-bottom:10px"></div>
+      <div id="stus-list-content" style="max-height:500px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
 <!-- PRINT MASK -->
 <div class="overlay" id="print-mask-modal" onclick="ovClose(event,'print-mask-modal')">
   <div class="modal modal-sm">
@@ -2112,6 +2126,83 @@ function _autoStatsExam(){
   }).sort((a,b)=>new Date(a.date)-new Date(b.date));
   return future.length?future[0].name:'all';
 }
+// 탐구 카운트 행 (클릭 시 명단 모달)
+function _tamguRow(kind,cnt,tagClass){
+  const clickable=cnt>0;
+  const onclick=clickable?`onclick="_showStusByTamgu('${kind}')"`:'';
+  const style=clickable?'cursor:pointer':'';
+  return `<div class="srow" style="${style}" ${onclick}><span><span class="sub-tag ${tagClass}">${kind}</span></span><span class="srow-val">${cnt}명</span></div>`;
+}
+
+/* ═══ 학생 명단 모달 (탐구 미지정 등 카운트 클릭 시) ═══ */
+let _stusListSnapshot=null;
+function showStusListModal(title, students, info){
+  _stusListSnapshot=students.slice();
+  document.getElementById('stus-list-title').textContent=title;
+  document.getElementById('stus-list-info').textContent=info||(`총 ${students.length}명`);
+  const content=document.getElementById('stus-list-content');
+  if(!students.length){
+    content.innerHTML='<div class="empty-state">표시할 학생이 없습니다.</div>';
+  } else {
+    // 강의실 → 반 → 학번 순 정렬
+    const sorted=students.slice().sort((a,b)=>{
+      const r1=(getRoom(a.고사장)?.name||a.고사장||'미배정').localeCompare(getRoom(b.고사장)?.name||b.고사장||'미배정');
+      if(r1!==0) return r1;
+      const c2=String(a.반||'').localeCompare(String(b.반||''));
+      if(c2!==0) return c2;
+      return String(a.학번||'').localeCompare(String(b.학번||''));
+    });
+    // 강의실별로 그룹화하여 표시
+    const byRoom={};
+    sorted.forEach(s=>{
+      const k=getRoom(s.고사장)?.name||s.고사장||'(미배정)';
+      if(!byRoom[k]) byRoom[k]=[];
+      byRoom[k].push(s);
+    });
+    content.innerHTML=Object.entries(byRoom).map(([roomName,stus])=>
+      `<div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--sl500);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">${roomName} <span style="font-weight:600;color:var(--sl400)">(${stus.length}명)</span></div>
+        <div style="border:1px solid var(--sl200);border-radius:7px;overflow:hidden">
+          ${stus.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;${i<stus.length-1?'border-bottom:1px solid var(--sl100);':''}font-size:12px;cursor:pointer" onclick="openEditStu(${s._i});closeModal('stus-list-modal')">
+            <span style="min-width:42px;font-weight:700;color:#2563eb;font-family:monospace">${s.반||''}</span>
+            <span style="min-width:50px;color:var(--sl500);font-family:monospace">${s.학번||''}</span>
+            <span style="min-width:24px;color:var(--sl400);font-size:11px">${s.성별||''}</span>
+            <span style="flex:1;font-weight:600">${s.이름||''}</span>
+            <span style="font-size:10px;color:${s.탐구?'var(--sl400)':'#dc2626'}">${s.탐구||'탐구 미지정'}</span>
+          </div>`).join('')}
+        </div>
+      </div>`
+    ).join('');
+  }
+  openModal('stus-list-modal');
+}
+// 통계 필터(현재 보고있는 모의고사 + 강의실 제외) 적용된 학생들 가져오기
+function _statsFilteredStus(){
+  const ef=_statsExam==='all'?null:_statsExam;
+  const excludedSet=new Set(S.excludedFromStats||[]);
+  const fRoomsBeforeExclude=ef?S.rooms.filter(r=>r.examType===ef):S.rooms;
+  const fRooms=fRoomsBeforeExclude.filter(r=>!excludedSet.has(r.id));
+  const fIds=new Set(fRooms.map(r=>r.id));
+  return S.students.filter(s=>fIds.has(s.고사장));
+}
+// 탐구별 학생 명단 표시 (현재 통계 필터 기준)
+function _showStusByTamgu(kind){
+  const stus=_statsFilteredStus();
+  let filtered, title;
+  if(kind==='미지정'){
+    filtered=stus.filter(s=>{
+      const t=s.탐구||'';
+      return !t.includes('사탐')&&!t.includes('과탐')&&!t.includes('사과');
+    });
+    title='탐구 미지정 학생 명단';
+  } else {
+    filtered=stus.filter(s=>(s.탐구||'').includes(kind));
+    title=kind+' 학생 명단';
+  }
+  const statsScope=_statsExam==='all'?'전체':`"${_statsExam}"`;
+  showStusListModal(title, filtered, `${statsScope} 기준 · ${filtered.length}명`);
+}
+
 function renderStats(){
   // _statsExam이 null이면 첫 진입 → 자동 선택
   if(_statsExam===null) _statsExam=_autoStatsExam();
@@ -2130,12 +2221,16 @@ function renderStats(){
   const cc={};stus.forEach(s=>{if(s.반)cc[s.반]=(cc[s.반]||0)+1;});
   const roomRows=fRooms.map(r=>{
     const rs=stus.filter(s=>s.고사장===r.id);
-    return{room:r,cnt:rs.length,act:r.cells.filter(c=>c.state==='active').length,
+    const validNs=new Set(r.cells.filter(c=>c.state==='active').map(c=>c.n));
+    const assignedStus=rs.filter(s=>validNs.has(+s.자리));
+    const unassignedStus=rs.filter(s=>!validNs.has(+s.자리));
+    return{room:r,cnt:assignedStus.length,act:r.cells.filter(c=>c.state==='active').length,
+      unassigned:unassignedStus.length,
       m:rs.filter(s=>s.성별==='남').length,f:rs.filter(s=>s.성별==='여').length,
       sat:rs.filter(s=>(s.탐구||'').includes('사탐')).length,
       gwt:rs.filter(s=>(s.탐구||'').includes('과탐')).length,
       sag:rs.filter(s=>(s.탐구||'').includes('사과')).length};
-  }).filter(x=>x.cnt>0||x.act>0);
+  }).filter(x=>x.cnt>0||x.act>0||x.unassigned>0);
   const examOpts=[`<option value="all" ${_statsExam==='all'?'selected':''}>전체 (모의고사 무관)</option>`,
     ...S.examTypes.map(et=>`<option value="${et.name}" ${_statsExam===et.name?'selected':''}>${et.name}${et.date?' ('+et.date+')':''}</option>`)].join('');
   const autoSel=_autoStatsExam();
@@ -2177,10 +2272,10 @@ function renderStats(){
       <div class="card" style="padding:16px 18px">
         <div class="ssub">탐구 선택</div>
         <div style="margin-top:6px">
-          <div class="srow"><span><span class="sub-tag sub-sat">사탐</span></span><span class="srow-val">${sat}명</span></div>
-          <div class="srow"><span><span class="sub-tag sub-gwt">과탐</span></span><span class="srow-val">${gwt}명</span></div>
-          <div class="srow"><span><span class="sub-tag sub-sag">사과</span></span><span class="srow-val">${sag}명</span></div>
-          ${total-sat-gwt-sag>0?`<div class="srow"><span style="color:var(--sl400)">미지정</span><span class="srow-val">${total-sat-gwt-sag}명</span></div>`:''}
+          ${_tamguRow('사탐',sat,'sub-sat')}
+          ${_tamguRow('과탐',gwt,'sub-gwt')}
+          ${_tamguRow('사과',sag,'sub-sag')}
+          ${total-sat-gwt-sag>0?`<div class="srow" style="cursor:pointer" onclick="_showStusByTamgu('미지정')"><span style="color:#dc2626;text-decoration:underline">미지정 ▸</span><span class="srow-val" style="color:#dc2626;font-weight:700">${total-sat-gwt-sag}명</span></div>`:''}
         </div>
       </div>
       <div class="card" style="padding:16px 18px">
@@ -2200,7 +2295,7 @@ function renderStats(){
           <tbody>
             ${roomRows.map(x=>`<tr><td><b>${x.room.name}</b></td>
               <td style="color:var(--sl500);font-size:11px">${x.room.examType||'—'}</td>
-              <td><b>${x.cnt}</b><span style="color:var(--sl400)">/${x.act}</span></td>
+              <td><b>${x.cnt}</b><span style="color:var(--sl400)">/${x.act}</span>${x.unassigned>0?` <span style="font-size:10px;color:#dc2626;font-weight:700;background:#fef2f2;padding:1px 5px;border-radius:3px;border:1px solid #fecaca">미배정 ${x.unassigned}</span>`:''}</td>
               <td>${x.m}</td><td>${x.f}</td><td>${x.sat}</td><td>${x.gwt}</td><td>${x.sag}</td></tr>`).join('')}
             <tr class="total-row"><td colspan="2"><b>합계</b></td><td><b>${total}</b></td>
               <td><b>${m}</b></td><td><b>${f}</b></td><td><b>${sat}</b></td><td><b>${gwt}</b></td><td><b>${sag}</b></td></tr>
