@@ -2211,6 +2211,11 @@ function _showStusByTamgu(kind){
   const statsScope=_statsExam==='all'?'전체':`"${_statsExam}"`;
   showStusListModal(title, filtered, `${statsScope} 기준 · ${filtered.length}명`);
 }
+// 강의실 미배정 학생 명단 (어느 강의실에도 안 속함 / 강의실이 사라짐)
+function _showNoRoomStus(){
+  const stus=S.students.filter(s=>!s.고사장||!getRoom(s.고사장));
+  showStusListModal('강의실 미배정 학생 명단', stus, `어느 강의실에도 속하지 않은 학생 · ${stus.length}명`);
+}
 
 function renderStats(){
   // _statsExam이 null이면 첫 진입 → 자동 선택
@@ -2228,6 +2233,8 @@ function renderStats(){
   const gwt=stus.filter(s=>(s.탐구||'').includes('과탐')).length;
   const sag=stus.filter(s=>(s.탐구||'').includes('사과')).length;
   const cc={};stus.forEach(s=>{if(s.반)cc[s.반]=(cc[s.반]||0)+1;});
+  // 강의실 미배정 학생 (어느 강의실에도 안 속함 / 강의실이 사라짐)
+  const noRoomStus=S.students.filter(s=>!s.고사장||!getRoom(s.고사장));
   const roomRows=fRooms.map(r=>{
     const rs=stus.filter(s=>s.고사장===r.id);
     const validNs=new Set(r.cells.filter(c=>c.state==='active').map(c=>c.n));
@@ -2244,8 +2251,8 @@ function renderStats(){
     ..._sortedExams().map(et=>`<option value="${et.name}" ${_statsExam===et.name?'selected':''}>${et.name}${et.date?' ('+et.date+')':''}</option>`)].join('');
   const autoSel=_autoStatsExam();
   const isAuto=(_statsExam===autoSel&&_statsExam!=='all');
-  // 제외 가능 강의실 목록 (모의고사 필터 적용 전 — 사용자가 어느 모의고사 보든 같은 강의실 목록에서 체크)
-  const allRoomsForExclude=ef?S.rooms.filter(r=>r.examType===ef):S.rooms;
+  // 제외 가능 강의실 목록 (모의고사 필터 무관하게 항상 모든 강의실 — 자유롭게 토글 가능)
+  const allRoomsForExclude=S.rooms;
   const excludedCount=allRoomsForExclude.filter(r=>excludedSet.has(r.id)).length;
   const roomCheckboxes=allRoomsForExclude.map(r=>{
     const checked=!excludedSet.has(r.id);
@@ -2296,7 +2303,12 @@ function renderStats(){
       </div>
     </div>
     <div class="card">
-      <div class="card-hd"><div class="card-title">강의실별 현황</div></div>
+      <div class="card-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div class="card-title">강의실별 현황</div>
+        <div style="cursor:${noRoomStus.length>0?'pointer':'default'};display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;background:${noRoomStus.length>0?'#fef2f2':'#f1f5f9'};border:1px solid ${noRoomStus.length>0?'#fecaca':'#cbd5e1'};color:${noRoomStus.length>0?'#dc2626':'var(--sl500)'}" ${noRoomStus.length>0?'onclick="_showNoRoomStus()"':''} title="어느 강의실에도 속하지 않은 학생">
+          강의실 미배정 ${noRoomStus.length}명${noRoomStus.length>0?' ▸':''}
+        </div>
+      </div>
       <div style="overflow-x:auto;padding:0 15px 12px">
         <table class="stbl" style="margin-top:10px">
           <thead><tr><th>강의실</th><th>모의고사</th><th>배정/좌석</th><th>남</th><th>여</th>
@@ -3259,7 +3271,8 @@ function lrsApply(mode, targetRoomId){
   const target=targetRoomId||_lrsTargetRoomId;
   if(!target){toast('대상 강의실 선택 필요','err');return;}
   const curRoom=getRoom(target);if(!curRoom){toast('대상 강의실 없음','err');return;}
-  if(!confirm(`"${sn.name}"의 "${snapRoom.name}" 데이터를 "${target}" 강의실에 ${mode==='full'?'통째로 복원':'학생만 교체'}합니다.\n\n계속하시겠습니까?`)) return;
+  const modeLabelConfirm=mode==='full'?'통째로 복원 (좌석 구조 포함)':'학생만 교체 (좌석 구조 유지)';
+  if(!confirm(`"${sn.name}"의 "${snapRoom.name}" 데이터를 "${target}" 강의실에 ${modeLabelConfirm}합니다.\n\n· 즉시 저장됩니다\n· 학생 데이터는 ↩ 취소 버튼으로 되돌릴 수 있습니다\n\n계속하시겠습니까?`)) return;
   saveUndo();
   // 1) 대상 강의실에 배정된 학생 제거 (학생 목록에서는 안 지움, 자리만 비움)
   S.students.forEach(s=>{if(s.고사장===target){s.고사장='';s.자리=0;}});
@@ -3300,10 +3313,11 @@ function lrsApply(mode, targetRoomId){
   }
   // 적용 후 그 강의실로 이동
   S.active=target;
+  saveAll({immediate:true});  // 즉시 Firestore에 저장 (지연 없이)
   renderAll();
   closeModal('snap-view-modal');
   const modeLabel=mode==='full'?'통째 복원':'학생만 교체';
-  toast(`✅ ${modeLabel} — 신규 ${added}명, 갱신 ${updated}명. [💾 저장] 눌러서 확정하세요`,'ok');
+  toast(`✅ "${target}" 강의실에 ${modeLabel} 완료 — 신규 ${added}명, 갱신 ${updated}명 (저장됨)`,'ok');
   writeLog('지난배치 불러오기', `"${sn.name}/${snapRoom.name}" → ${target} (${modeLabel}, +${added}/~${updated})`);
 }
 function lrsApply_orig(mode){/* deprecated — replaced by lrsApply above */}
