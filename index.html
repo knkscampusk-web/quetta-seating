@@ -849,6 +849,21 @@ input,select,textarea{font-family:inherit;cursor:auto}
   </div>
 </div>
 
+<!-- 강의실 모의고사 빠른 선택 모달 (지난배치 불러온 후 자동 띄움용) -->
+<div class="overlay" id="set-exam-modal" onclick="ovClose(event,'set-exam-modal')">
+  <div class="modal modal-sm">
+    <div class="mhd">
+      <span class="mhd-title">📋 모의고사 선택</span>
+      <button class="btn btn-ghost" onclick="closeModal('set-exam-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div id="set-exam-info" style="font-size:12px;margin-bottom:12px;color:var(--sl500);line-height:1.5"></div>
+      <div id="set-exam-list" style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto"></div>
+    </div>
+    <div class="mfoot"><button class="btn btn-sec" onclick="closeModal('set-exam-modal')">나중에 설정</button></div>
+  </div>
+</div>
+
 <!-- PRINT MASK -->
 <div class="overlay" id="print-mask-modal" onclick="ovClose(event,'print-mask-modal')">
   <div class="modal modal-sm">
@@ -2238,6 +2253,48 @@ function _goToRoom(roomId){
   switchRoom(roomId);
 }
 
+/* ═══ 강의실 모의고사 빠른 선택 모달 (지난배치 불러온 후 자동) ═══ */
+let _setExamTargetRoom=null;
+function openSetExamModal(roomId,extraInfo){
+  _setExamTargetRoom=roomId;
+  const room=getRoom(roomId);
+  if(!room) return;
+  const info=document.getElementById('set-exam-info');
+  info.innerHTML=(extraInfo?`<div style="padding:8px 10px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;margin-bottom:10px;color:#92400e">${extraInfo}</div>`:'')
+    +`<b>"${room.name}"</b> 강의실에 적용할 모의고사를 선택하세요.`;
+  // 시행 예정 모의고사 우선 + 시행일 미정 + 시행 종료 모두 표시 (사용자가 자유롭게 선택)
+  const sorted=_sortedExams();
+  const list=document.getElementById('set-exam-list');
+  if(!sorted.length){
+    list.innerHTML='<div class="empty-state" style="padding:20px">등록된 모의고사가 없습니다.<br><span style="font-size:11px;color:var(--sl400)">⚙ 설정 → 모의고사 목록에서 추가하세요.</span></div>';
+  } else {
+    const today=new Date();today.setHours(0,0,0,0);
+    list.innerHTML=sorted.map(et=>{
+      let status='', statusColor='';
+      if(et.date){
+        const d=new Date(et.date);d.setHours(0,0,0,0);
+        if(d<today){status='시행 종료';statusColor='#dc2626';}
+        else if(d.getTime()===today.getTime()){status='오늘';statusColor='#15803d';}
+        else status='시행 예정', statusColor='#2563eb';
+      } else { status='시행일 미정'; statusColor='#6b7280'; }
+      return`<button class="btn btn-sec" style="justify-content:space-between;padding:10px 14px;font-size:13px" onclick="_setRoomExam('${et.name.replace(/'/g,"\\'")}')">
+        <span>${et.name}${et.date?` (${et.date})`:''}</span>
+        <span style="font-size:10px;font-weight:700;color:${statusColor};background:${statusColor}1a;padding:2px 7px;border-radius:4px">${status}</span>
+      </button>`;
+    }).join('');
+  }
+  openModal('set-exam-modal');
+}
+function _setRoomExam(examName){
+  const room=getRoom(_setExamTargetRoom);
+  if(!room){toast('대상 강의실 없음','err');return;}
+  room.examType=examName;
+  saveAll({immediate:true});renderAll();
+  closeModal('set-exam-modal');
+  toast(`"${room.name}" 강의실에 "${examName}" 설정 완료`,'ok');
+  writeLog('강의실 모의고사 변경', `${room.name} → ${examName}`);
+}
+
 function renderStats(){
   // _statsExam이 null이면 첫 진입 → 자동 선택
   if(_statsExam===null) _statsExam=_autoStatsExam();
@@ -3360,6 +3417,10 @@ function lrsApply(mode, targetRoomId){
   }
   toast(toastMsg,'ok');
   writeLog('지난배치 불러오기', `"${sn.name}/${snapRoom.name}" → ${target} (${modeLabel}, +${added}/~${updated})${examTypeCleared?', examType 비움':''}`);
+  // examType이 비워졌으면 사용자가 모의고사 선택할 수 있게 모달 띄움
+  if(examTypeCleared){
+    setTimeout(()=>openSetExamModal(target, `📌 스냅샷의 모의고사 <b>"${snapRoom.examType}"</b>는 시행 종료된 모의고사라 자동으로 비웠습니다.<br>이 강의실에 적용할 새 모의고사를 선택하세요.`), 400);
+  }
 }
 function lrsApply_orig(mode){/* deprecated — replaced by lrsApply above */}
 
