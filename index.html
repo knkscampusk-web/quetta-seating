@@ -1882,10 +1882,15 @@ function renderTabs(){
   document.getElementById('tabs').innerHTML=
     `<div class="tab ${S.active==='__stats__'?'on':''}" onclick="switchRoom('__stats__')" style="border-right:1px solid rgba(255,255,255,.1);margin-right:4px">📊 통계</div>`+
     S.rooms.map(r=>{
-      // 실제 배정 학생만 카운트: 활성 좌석 n에 매칭되는 학생만
+      // displayContext 적용: 시행 종료 모의고사 (empty 모드)면 0으로 표시 (화면과 일관성)
+      const ctx=resolveDisplayContext(r);
       const validNs=new Set(r.cells.filter(c=>c.state==='active').map(c=>c.n));
-      const cnt=roomStu(r.id).filter(s=>validNs.has(+s.자리)).length;
-      return`<div class="tab ${r.id===S.active?'on':''}" onclick="switchRoom('${r.id}')">${r.name}<span class="tab-n">${cnt}</span></div>`;
+      const actualCnt=roomStu(r.id).filter(s=>validNs.has(+s.자리)).length;
+      const cnt=ctx.mode==='empty'?0:actualCnt;
+      // 빈 좌석 모드일 때는 카운트 흐리게 표시 (학생 데이터는 있지만 화면엔 안 보임)
+      const dimAttr=ctx.mode==='empty'?' style="opacity:0.45"':'';
+      const tipAttr=ctx.mode==='empty'?` title="이 강의실은 시행 종료 모의고사라 빈 좌석 모드 (실제 데이터 ${actualCnt}명)"`:'';
+      return`<div class="tab ${r.id===S.active?'on':''}" onclick="switchRoom('${r.id}')"${tipAttr}>${r.name}<span class="tab-n"${dimAttr}>${cnt}</span></div>`;
     }).join('');
 }
 function renderMain(){
