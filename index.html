@@ -2172,13 +2172,23 @@ function showStusListModal(title, students, info){
       `<div style="margin-bottom:12px">
         <div style="font-size:11px;font-weight:700;color:var(--sl500);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">${roomName} <span style="font-weight:600;color:var(--sl400)">(${stus.length}명)</span></div>
         <div style="border:1px solid var(--sl200);border-radius:7px;overflow:hidden">
-          ${stus.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;${i<stus.length-1?'border-bottom:1px solid var(--sl100);':''}font-size:12px;cursor:pointer" onclick="openEditStu(${s._i});closeModal('stus-list-modal')">
-            <span style="min-width:42px;font-weight:700;color:#2563eb;font-family:monospace">${s.반||''}</span>
-            <span style="min-width:50px;color:var(--sl500);font-family:monospace">${s.학번||''}</span>
-            <span style="min-width:24px;color:var(--sl400);font-size:11px">${s.성별||''}</span>
-            <span style="flex:1;font-weight:600">${s.이름||''}</span>
-            <span style="font-size:10px;color:${s.탐구?'var(--sl400)':'#dc2626'}">${s.탐구||'탐구 미지정'}</span>
-          </div>`).join('')}
+          ${stus.map((s,i)=>{
+            // 강의실 미배정 학생일 때만 매핑된 원래 강의실 표시
+            const noRoom=!s.고사장||!getRoom(s.고사장);
+            const mappedRoomId=noRoom?(S.banRoomMap?.[s.반]?.roomId||null):null;
+            const mappedRoomName=mappedRoomId?(getRoom(mappedRoomId)?.name||mappedRoomId):null;
+            const mappedHtml=mappedRoomName
+              ? `<span style="font-size:10px;color:#2563eb;font-weight:700;cursor:pointer;padding:2px 7px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;margin-right:4px" onclick="event.stopPropagation();_goToRoom('${mappedRoomId}')" title="이 학생의 원래 소속 강의실로 이동">→ ${mappedRoomName} ▸</span>`
+              : (noRoom && s.반 ? `<span style="font-size:10px;color:#92400e;background:#fef3c7;padding:2px 7px;border-radius:5px;margin-right:4px" title="이 반은 매핑 등록 안 됨">${s.반}: 매핑 없음</span>` : '');
+            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;${i<stus.length-1?'border-bottom:1px solid var(--sl100);':''}font-size:12px;cursor:pointer" onclick="openEditStu(${s._i});closeModal('stus-list-modal')">
+              <span style="min-width:42px;font-weight:700;color:#2563eb;font-family:monospace">${s.반||''}</span>
+              <span style="min-width:50px;color:var(--sl500);font-family:monospace">${s.학번||''}</span>
+              <span style="min-width:24px;color:var(--sl400);font-size:11px">${s.성별||''}</span>
+              <span style="flex:1;font-weight:600">${s.이름||''}</span>
+              ${mappedHtml}
+              <span style="font-size:10px;color:${s.탐구?'var(--sl400)':'#dc2626'}">${s.탐구||'탐구 미지정'}</span>
+            </div>`;
+          }).join('')}
         </div>
       </div>`
     ).join('');
@@ -2215,6 +2225,12 @@ function _showStusByTamgu(kind){
 function _showNoRoomStus(){
   const stus=S.students.filter(s=>!s.고사장||!getRoom(s.고사장));
   showStusListModal('강의실 미배정 학생 명단', stus, `어느 강의실에도 속하지 않은 학생 · ${stus.length}명`);
+}
+// 학생 명단 모달에서 강의실로 이동
+function _goToRoom(roomId){
+  if(!getRoom(roomId)){toast('강의실 없음','err');return;}
+  closeModal('stus-list-modal');
+  switchRoom(roomId);
 }
 
 function renderStats(){
@@ -3304,11 +3320,27 @@ function lrsApply(mode, targetRoomId){
   });
   S.students.forEach((s,i)=>s._i=i);
   // 3) full 모드면 좌석 구조도 복원
+  let examTypeCleared=false;
   if(mode==='full'){
     curRoom.rows=snapRoom.rows;
     curRoom.cols=snapRoom.cols;
     curRoom.cells=JSON.parse(JSON.stringify(snapRoom.cells));
-    if(snapRoom.examType!==undefined) curRoom.examType=snapRoom.examType;
+    if(snapRoom.examType!==undefined){
+      // 시행 종료된 모의고사인지 체크 — 시행 종료면 examType 비워서 학생이 화면에 보이게
+      const et=S.examTypes.find(e=>e.name===snapRoom.examType);
+      let isExpired=false;
+      if(et && et.date){
+        const today=new Date();today.setHours(0,0,0,0);
+        const d=new Date(et.date);d.setHours(0,0,0,0);
+        isExpired=d<today;
+      }
+      if(isExpired){
+        curRoom.examType='';
+        examTypeCleared=true;
+      } else {
+        curRoom.examType=snapRoom.examType;
+      }
+    }
     if(snapRoom.notice!==undefined) curRoom.notice=snapRoom.notice;
   }
   // 적용 후 그 강의실로 이동
@@ -3317,8 +3349,12 @@ function lrsApply(mode, targetRoomId){
   renderAll();
   closeModal('snap-view-modal');
   const modeLabel=mode==='full'?'통째 복원':'학생만 교체';
-  toast(`✅ "${target}" 강의실에 ${modeLabel} 완료 — 신규 ${added}명, 갱신 ${updated}명 (저장됨)`,'ok');
-  writeLog('지난배치 불러오기', `"${sn.name}/${snapRoom.name}" → ${target} (${modeLabel}, +${added}/~${updated})`);
+  let toastMsg=`✅ "${target}" 강의실에 ${modeLabel} 완료 — 신규 ${added}명, 갱신 ${updated}명 (저장됨)`;
+  if(examTypeCleared){
+    toastMsg+=` · 시행 종료된 모의고사라 강의실 모의고사 설정을 비웠습니다. 새 모의고사로 설정해주세요.`;
+  }
+  toast(toastMsg,'ok');
+  writeLog('지난배치 불러오기', `"${sn.name}/${snapRoom.name}" → ${target} (${modeLabel}, +${added}/~${updated})${examTypeCleared?', examType 비움':''}`);
 }
 function lrsApply_orig(mode){/* deprecated — replaced by lrsApply above */}
 
