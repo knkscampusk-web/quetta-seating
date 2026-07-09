@@ -3381,29 +3381,31 @@ function lrsApply(mode, targetRoomId){
     }
   });
   S.students.forEach((s,i)=>s._i=i);
-  // 3) full 모드면 좌석 구조도 복원
-  let examTypeCleared=false;
+  // 3) full 모드면 좌석 구조 + examType/notice도 복원
   if(mode==='full'){
     curRoom.rows=snapRoom.rows;
     curRoom.cols=snapRoom.cols;
     curRoom.cells=JSON.parse(JSON.stringify(snapRoom.cells));
-    if(snapRoom.examType!==undefined){
-      // 시행 종료된 모의고사인지 체크 — 시행 종료면 examType 비워서 학생이 화면에 보이게
-      const et=S.examTypes.find(e=>e.name===snapRoom.examType);
-      let isExpired=false;
-      if(et && et.date){
-        const today=new Date();today.setHours(0,0,0,0);
-        const d=new Date(et.date);d.setHours(0,0,0,0);
-        isExpired=d<today;
-      }
-      if(isExpired){
+    if(snapRoom.examType!==undefined) curRoom.examType=snapRoom.examType;
+    if(snapRoom.notice!==undefined) curRoom.notice=snapRoom.notice;
+  }
+  // 4) 최종 examType이 시행 종료된 모의고사면 자동 비움 (empty 모드 방지 — 학생이 화면에 보이게)
+  // full/partial 모드 상관없이 적용:
+  //   - full: 스냅샷 examType이 시행 종료인 경우
+  //   - partial: 원래 curRoom.examType이 시행 종료인 경우
+  let examTypeCleared=false;
+  let clearedExamName='';
+  if(curRoom.examType){
+    const et=S.examTypes.find(e=>e.name===curRoom.examType);
+    if(et && et.date){
+      const today=new Date();today.setHours(0,0,0,0);
+      const d=new Date(et.date);d.setHours(0,0,0,0);
+      if(d<today){
+        clearedExamName=curRoom.examType;
         curRoom.examType='';
         examTypeCleared=true;
-      } else {
-        curRoom.examType=snapRoom.examType;
       }
     }
-    if(snapRoom.notice!==undefined) curRoom.notice=snapRoom.notice;
   }
   // 적용 후 그 강의실로 이동
   S.active=target;
@@ -3419,7 +3421,7 @@ function lrsApply(mode, targetRoomId){
   writeLog('지난배치 불러오기', `"${sn.name}/${snapRoom.name}" → ${target} (${modeLabel}, +${added}/~${updated})${examTypeCleared?', examType 비움':''}`);
   // examType이 비워졌으면 사용자가 모의고사 선택할 수 있게 모달 띄움
   if(examTypeCleared){
-    setTimeout(()=>openSetExamModal(target, `📌 스냅샷의 모의고사 <b>"${snapRoom.examType}"</b>는 시행 종료된 모의고사라 자동으로 비웠습니다.<br>이 강의실에 적용할 새 모의고사를 선택하세요.`), 400);
+    setTimeout(()=>openSetExamModal(target, `📌 이 강의실의 모의고사 <b>"${clearedExamName}"</b>는 시행 종료된 모의고사라 학생이 화면에 보이지 않았습니다.<br>자동으로 비웠으니 적용할 새 모의고사를 선택하세요.`), 400);
   }
 }
 function lrsApply_orig(mode){/* deprecated — replaced by lrsApply above */}
