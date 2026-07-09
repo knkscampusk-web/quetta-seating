@@ -438,22 +438,6 @@ input,select,textarea{font-family:inherit;cursor:auto}
               <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="upl-exist" value="add"> 추가 (기존 유지 + 새 학생 추가)</label>
             </div>
           </div>
-          <!-- 탐구 순서 (드래그) -->
-          <div style="margin-bottom:10px">
-            <div style="font-size:10px;font-weight:700;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:8px">
-              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;text-transform:none;letter-spacing:0">
-                <input type="checkbox" id="use-tamgu-sort" checked onchange="toggleTamguSortUI()" style="cursor:pointer">
-                정렬: 탐구 순서
-              </label>
-              <span style="font-weight:400;color:#92400e;text-transform:none;letter-spacing:0">— 체크 해제 시 탐구 무시</span>
-            </div>
-            <div id="tamgu-sort" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-              <span class="tamgu-item" data-val="사탐" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">사탐</span>
-              <span class="tamgu-item" data-val="과탐" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">과탐</span>
-              <span class="tamgu-item" data-val="사과" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">사과</span>
-              <span style="font-size:10px;color:#92400e;margin-left:4px">← 위치를 드래그해서 변경</span>
-            </div>
-          </div>
           <!-- 남녀 / 이름 -->
           <div style="display:flex;gap:14px;flex-wrap:wrap">
             <div>
@@ -469,6 +453,22 @@ input,select,textarea{font-family:inherit;cursor:auto}
                 <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="upl-name" value="asc" checked> 가 → 하 (오름)</label>
                 <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="upl-name" value="desc"> 하 → 가 (내림)</label>
               </div>
+            </div>
+          </div>
+          <!-- 탐구 순서 (드래그) — 남녀/이름 아래로 배치, 기본 체크 해제 -->
+          <div style="margin-top:10px">
+            <div style="font-size:10px;font-weight:700;color:#92400e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:8px">
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;text-transform:none;letter-spacing:0">
+                <input type="checkbox" id="use-tamgu-sort" onchange="toggleTamguSortUI()" style="cursor:pointer">
+                정렬: 탐구 순서
+              </label>
+              <span style="font-weight:400;color:#92400e;text-transform:none;letter-spacing:0">— 체크 시 탐구도 정렬 키에 포함</span>
+            </div>
+            <div id="tamgu-sort" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;opacity:0.4;pointer-events:none;background:#f5f5f5;padding:6px;border-radius:6px">
+              <span class="tamgu-item" data-val="사탐" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">사탐</span>
+              <span class="tamgu-item" data-val="과탐" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">과탐</span>
+              <span class="tamgu-item" data-val="사과" draggable="true" style="padding:4px 10px;background:#fff;border:1.5px solid #fbbf24;border-radius:5px;font-size:12px;font-weight:700;cursor:grab;user-select:none">사과</span>
+              <span style="font-size:10px;color:#92400e;margin-left:4px">← 위치를 드래그해서 변경</span>
             </div>
           </div>
           <div style="font-size:10px;color:#92400e;margin-top:8px;line-height:1.6">
@@ -1642,14 +1642,27 @@ function handleUpload(e){
       // 자동 배정 모드 체크
       const isAuto=_uploadRoomId==='all' && document.getElementById('upl-auto')?.checked;
       // AL: 자동 모드면 탐구1/탐구2도 인식, 고사장/자리는 선택사항
-      const AL={반:['반'],성별:['성별'],이름:['이름','성명'],학번:['학번'],
-        수학선택:['수학선택','수학'],탐구:['탐구','탐구선택'],탐구1:['탐구1'],탐구2:['탐구2'],
-        반코드:['반코드'],고사장:['고사장','강의실','시험실'],자리:['자리','좌석','좌석번호']};
+      // 반은 두 열로 쪼갤 수 있음: '반(문자)' + '반(숫자)' → 조합해서 반이름
+      const AL={
+        반문자:['반(문자)','반문자','반'], // 옛 양식 '반'과도 호환
+        반숫자:['반(숫자)','반숫자'],
+        성별:['성별'],이름:['이름','성명'],학번:['학번'],
+        수학선택:['수학선택','수학'],탐구:['탐구','탐구선택'],
+        탐구1:['탐1(필수아님)','탐1','탐구1'],
+        탐구2:['탐2(필수아님)','탐2','탐구2'],
+        반코드:['반코드'],고사장:['고사장','강의실','시험실'],자리:['자리','좌석','좌석번호']
+      };
       const map={};
-      for(const[k,al]of Object.entries(AL)) map[k]=hdrs.find(h=>al.some(a=>h.trim()===a||h.trim().startsWith(a)));
-      // 필수 컬럼: 자동 모드면 반/이름/학번만 / 일반 모드면 기존대로
+      // 정확 일치 우선, 없으면 startsWith fallback (여러 열이 잘못 매칭되는 걸 방지)
+      for(const[k,al]of Object.entries(AL)){
+        map[k]=hdrs.find(h=>al.some(a=>h.trim()===a))
+             ||hdrs.find(h=>al.some(a=>h.trim().startsWith(a)));
+      }
+      // 반=반문자 alias (일반 모드 호환용)
+      map.반=map.반문자;
+      // 필수 컬럼: 자동 모드면 반문자/이름/학번만 / 일반 모드면 기존대로
       const req=isAuto
-        ? ['반','이름','학번']
+        ? ['반문자','이름','학번']
         : (_uploadRoomId==='all'?['이름','학번','고사장','자리']:['이름','학번','자리']);
       const miss=req.filter(k=>!map[k]);
       if(miss.length){uplMsg(`❌ 컬럼 없음: ${miss.join(', ')}<br><small>헤더: ${hdrs.slice(0,12).join(' · ')}</small>`,'#7f1d1d');return;}
@@ -1719,8 +1732,14 @@ function autoAssignUpload(rows, map){
   }
 
   // 2) 엑셀 행 → 학생 객체 (반/이름/학번 모두 있어야)
-  const newStudents = rows.filter(r=>r[map.반]&&r[map.이름]&&r[map.학번]).map((r,i)=>{
-    const banName=String(r[map.반]||'').trim();
+  // 반이름 조합 함수: 반(문자)+반(숫자). 반(문자)에만 "M2" 있으면 그대로 사용
+  const buildBanName=(r)=>{
+    const b1=map.반문자?String(r[map.반문자]||'').trim():'';
+    const b2=map.반숫자?String(r[map.반숫자]||'').trim():'';
+    return b1+b2; // "M"+"2"="M2", "M2"+""="M2", ""+""=""
+  };
+  const newStudents = rows.filter(r=>buildBanName(r)&&r[map.이름]&&r[map.학번]).map((r,i)=>{
+    const banName=buildBanName(r);
     const mapping=(S.banRoomMap||{})[banName]||{};
     const roomId=mapping.roomId||'';
     const banCode=mapping.banCode||''; // 반코드는 매핑에서만 가져옴 (엑셀에 컬럼 없음)
@@ -1870,24 +1889,27 @@ function autoAssignUpload(rows, map){
 function downloadTemplate(){
   const isAuto=document.getElementById('upl-auto')?.checked;
   const wb=XLSX.utils.book_new();
+  // 오늘 날짜 (YYYY-MM-DD)
+  const today=new Date().toISOString().slice(0,10);
   if(isAuto){
-    // 자동 배정 모드 양식: 반/학번/성별/성명/탐구1/탐구2 (수학선택·반코드 제외, 반코드는 매핑에서 자동)
-    const hdrs=['반','학번','성별','성명','탐구1','탐구2'];
+    // 자동 배정 모드 양식: 반(문자)/반(숫자)/학번/성별/성명/탐1/탐2
+    // 반(문자)+반(숫자)를 조합해서 반이름으로 인식 (예: A+1 → "A1")
+    // 반(문자)에만 입력해도 인식 (예: "A1")
+    const hdrs=['반(문자)','반(숫자)','학번','성별','성명','탐1(필수아님)','탐2(필수아님)'];
     const ws=XLSX.utils.aoa_to_sheet([
       hdrs,
-      ['A1','01','남','홍길동','물리','화학'],
-      ['A1','02','여','김영희','사회문화','생활과윤리'],
-      ['M1','01','남','이철수','물리','지구과학']
+      ['A','1','9999','남','홍길동','물리1','사회문화']
     ]);
     ws['!cols']=hdrs.map(()=>({wch:14}));
     XLSX.utils.book_append_sheet(wb,ws,'RawData');
-    XLSX.writeFile(wb,'좌석배치_자동배정양식.xlsx');
+    XLSX.writeFile(wb,`좌석배치_자동배정양식_${today}.xlsx`);
   } else {
     const hdrs=['반','성별','이름','학번','수학선택','탐구','반코드','고사장','자리'];
     const ws=XLSX.utils.aoa_to_sheet([hdrs,['X2','남','홍길동','5001','미적분','사탐','71','101호','1']]);
     ws['!cols']=hdrs.map(()=>({wch:14}));
     XLSX.utils.book_append_sheet(wb,ws,'RawData');
-    XLSX.writeFile(wb,_uploadRoomId!=='all'?`${_uploadRoomId}_업로드양식.xlsx`:'좌석배치_업로드양식.xlsx');
+    const baseName=_uploadRoomId!=='all'?`${_uploadRoomId}_업로드양식`:'좌석배치_업로드양식';
+    XLSX.writeFile(wb,`${baseName}_${today}.xlsx`);
   }
 }
 
