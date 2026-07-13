@@ -1533,6 +1533,15 @@ function shiftBackFrom(roomId,fromN){
 
 /* ═══ UPLOAD ═══ */
 function openUplModal(mode){
+  // 통계 탭에서 눌렸을 때(__stats__): 관리자면 전체 업로드로, 아니면 안내
+  if(mode==='__stats__'){
+    if(_adminMode){
+      mode='all'; // 전체 업로드로 전환
+    } else {
+      toast('강의실 탭으로 이동한 후 업로드하세요','err');
+      return;
+    }
+  }
   _uploadRoomId=mode;
   const isRoom=mode!=='all';
   document.getElementById('upl-title').textContent=isRoom?`📤 ${mode} 업로드`:'📤 전체 엑셀 업로드';
