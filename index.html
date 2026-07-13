@@ -2196,10 +2196,20 @@ function _tamguRow(kind,cnt,tagClass){
 
 /* ═══ 학생 명단 모달 (탐구 미지정 등 카운트 클릭 시) ═══ */
 let _stusListSnapshot=null;
-function showStusListModal(title, students, info){
+function showStusListModal(title, students, info, goRoomId){
   _stusListSnapshot=students.slice();
   document.getElementById('stus-list-title').textContent=title;
-  document.getElementById('stus-list-info').textContent=info||(`총 ${students.length}명`);
+  // info + 강의실 이동 버튼
+  const infoEl=document.getElementById('stus-list-info');
+  const gotoBtn=goRoomId&&getRoom(goRoomId)
+    ?`<button class="btn btn-pri btn-sm" style="margin-left:8px" onclick="_goToRoom('${goRoomId}')">→ ${getRoom(goRoomId).name} 강의실로 이동</button>`
+    :'';
+  infoEl.innerHTML=`<span>${info||`총 ${students.length}명`}</span>${gotoBtn}`;
+  infoEl.style.display='flex';
+  infoEl.style.alignItems='center';
+  infoEl.style.justifyContent='space-between';
+  infoEl.style.flexWrap='wrap';
+  infoEl.style.gap='8px';
   const content=document.getElementById('stus-list-content');
   if(!students.length){
     content.innerHTML='<div class="empty-state">표시할 학생이 없습니다.</div>';
@@ -2272,10 +2282,28 @@ function _showStusByTamgu(kind){
   const statsScope=_statsExam==='all'?'전체':`"${_statsExam}"`;
   showStusListModal(title, filtered, `${statsScope} 기준 · ${filtered.length}명`);
 }
-// 강의실 미배정 학생 명단 (어느 강의실에도 안 속함 / 강의실이 사라짐)
+// 미배정 학생 명단 (강의실 없음 + 강의실은 있지만 자리 없음 = 좌석 미배정 모두 포함)
 function _showNoRoomStus(){
-  const stus=S.students.filter(s=>!s.고사장||!getRoom(s.고사장));
-  showStusListModal('강의실 미배정 학생 명단', stus, `어느 강의실에도 속하지 않은 학생 · ${stus.length}명`);
+  const stus=S.students.filter(s=>{
+    if(!s.고사장||!getRoom(s.고사장)) return true;
+    const room=getRoom(s.고사장);
+    const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
+    return !validNs.has(+s.자리);
+  });
+  showStusListModal('미배정 학생 명단', stus, `좌석에 배정되지 않은 학생 · ${stus.length}명`);
+}
+// 특정 강의실의 좌석 미배정 학생 명단 (강의실별 현황 표의 미배정 배지 클릭 시)
+function _showRoomUnassigned(roomId){
+  const room=getRoom(roomId);
+  if(!room){toast('강의실 없음','err');return;}
+  const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
+  const stus=S.students.filter(s=>s.고사장===roomId && !validNs.has(+s.자리));
+  showStusListModal(
+    `"${room.name}" 미배정 학생 명단`,
+    stus,
+    `이 강의실에 배정됐지만 좌석이 없는 학생 · ${stus.length}명 · 강의실로 이동해서 좌석 배정 가능`,
+    roomId // 강의실 이동 버튼용
+  );
 }
 // 학생 명단 모달에서 강의실로 이동
 function _goToRoom(roomId){
@@ -2343,7 +2371,13 @@ function renderStats(){
   const sag=stus.filter(s=>(s.탐구||'').includes('사과')).length;
   const cc={};stus.forEach(s=>{if(s.반)cc[s.반]=(cc[s.반]||0)+1;});
   // 강의실 미배정 학생 (어느 강의실에도 안 속함 / 강의실이 사라짐)
-  const noRoomStus=S.students.filter(s=>!s.고사장||!getRoom(s.고사장));
+  // 전체 미배정 학생: 강의실 없음 + 좌석 없음(자리가 활성 좌석에 없음) 모두 포함
+  const noRoomStus=S.students.filter(s=>{
+    if(!s.고사장||!getRoom(s.고사장)) return true; // 강의실 자체가 없음
+    const room=getRoom(s.고사장);
+    const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
+    return !validNs.has(+s.자리); // 좌석에 배정 안 됨
+  });
   const roomRows=fRooms.map(r=>{
     const rs=stus.filter(s=>s.고사장===r.id);
     const validNs=new Set(r.cells.filter(c=>c.state==='active').map(c=>c.n));
@@ -2414,8 +2448,8 @@ function renderStats(){
     <div class="card">
       <div class="card-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div class="card-title">강의실별 현황</div>
-        <div style="cursor:${noRoomStus.length>0?'pointer':'default'};display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;background:${noRoomStus.length>0?'#fef2f2':'#f1f5f9'};border:1px solid ${noRoomStus.length>0?'#fecaca':'#cbd5e1'};color:${noRoomStus.length>0?'#dc2626':'var(--sl500)'}" ${noRoomStus.length>0?'onclick="_showNoRoomStus()"':''} title="어느 강의실에도 속하지 않은 학생">
-          강의실 미배정 ${noRoomStus.length}명${noRoomStus.length>0?' ▸':''}
+        <div style="cursor:${noRoomStus.length>0?'pointer':'default'};display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;background:${noRoomStus.length>0?'#fef2f2':'#f1f5f9'};border:1px solid ${noRoomStus.length>0?'#fecaca':'#cbd5e1'};color:${noRoomStus.length>0?'#dc2626':'var(--sl500)'}" ${noRoomStus.length>0?'onclick="_showNoRoomStus()"':''} title="좌석에 배정되지 않은 모든 학생 (강의실 없음 + 강의실은 있지만 자리 없음)">
+          미배정 ${noRoomStus.length}명${noRoomStus.length>0?' ▸':''}
         </div>
       </div>
       <div style="overflow-x:auto;padding:0 15px 12px">
@@ -2425,7 +2459,7 @@ function renderStats(){
           <tbody>
             ${roomRows.map(x=>`<tr><td><b>${x.room.name}</b></td>
               <td style="color:var(--sl500);font-size:11px">${x.room.examType||'—'}</td>
-              <td><b>${x.cnt}</b><span style="color:var(--sl400)">/${x.act}</span>${x.unassigned>0?` <span style="font-size:10px;color:#dc2626;font-weight:700;background:#fef2f2;padding:1px 5px;border-radius:3px;border:1px solid #fecaca">미배정 ${x.unassigned}</span>`:''}</td>
+              <td><b>${x.cnt}</b><span style="color:var(--sl400)">/${x.act}</span>${x.unassigned>0?` <span style="font-size:10px;color:#dc2626;font-weight:700;background:#fef2f2;padding:1px 5px;border-radius:3px;border:1px solid #fecaca;cursor:pointer" onclick="_showRoomUnassigned('${x.room.id}')" title="이 강의실의 미배정 학생 명단 보기">미배정 ${x.unassigned} ▸</span>`:''}</td>
               <td>${x.m}</td><td>${x.f}</td><td>${x.sat}</td><td>${x.gwt}</td><td>${x.sag}</td></tr>`).join('')}
             <tr class="total-row"><td colspan="2"><b>합계</b></td><td><b>${total}</b></td>
               <td><b>${m}</b></td><td><b>${f}</b></td><td><b>${sat}</b></td><td><b>${gwt}</b></td><td><b>${sag}</b></td></tr>
