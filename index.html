@@ -1427,10 +1427,23 @@ function renum(cells){
     c.r=Number.isFinite(+c.r)?+c.r:0;
     c.c=Number.isFinite(+c.c)?+c.c:0;
   });
-  // dn: 활성+미사용, 행 우선 (a.r → a.c)
+  // dn: 활성+미사용, 행 우선 (a.r → a.c) — 화면상 왼→오, 위→아래 순번
   [...cells].filter(c=>c.state!=='void').sort((a,b)=>a.r-b.r||a.c-b.c).forEach((c,i)=>c.dn=i+1);
-  // n: 활성만, 열 우선 (a.c → a.r)
-  [...cells].filter(c=>c.state==='active').sort((a,b)=>a.c-b.c||a.r-b.r).forEach((c,i)=>c.n=i+1);
+
+  // n: 활성 좌석에 부여, 화면상 "세로 라인" 기준
+  // 각 활성 좌석에 "그 행 내에서 몇 번째 활성인지"(vc = virtual column)를 계산
+  //  → 각 행마다 활성 좌석을 왼→오 순으로 세면서 vc 부여
+  //  → 그 vc 오름차순, r 오름차순으로 정렬 = 사용자 시각의 세로 라인 순서
+  // (일반 강의실처럼 모든 행이 같은 열 구조면 결과가 기존과 동일)
+  const rowActiveCount={};
+  [...cells].filter(c=>c.state==='active').sort((a,b)=>a.r-b.r||a.c-b.c).forEach(c=>{
+    if(!rowActiveCount[c.r]) rowActiveCount[c.r]=0;
+    c._vc=rowActiveCount[c.r]++;
+  });
+  [...cells].filter(c=>c.state==='active').sort((a,b)=>a._vc-b._vc||a.r-b.r).forEach((c,i)=>c.n=i+1);
+  // 정리 (임시 필드 제거)
+  cells.forEach(c=>{delete c._vc;});
+
   cells.filter(c=>c.state==='void').forEach(c=>{c.dn=null;c.n=null;});
   cells.filter(c=>c.state==='blocked').forEach(c=>c.n=null);
 }
