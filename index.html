@@ -2568,14 +2568,52 @@ function doSwap(rA,nA,rB,nB){
 function cancelSwap(){S.swap=null;renderMain();}
 
 /* ═══ DRAG & DROP ═══ */
+/* ═══ 드래그 중 자동 스크롤 (화면 상/하단 근처에 커서 있으면 자동 이동) ═══ */
+let _autoScrollTimer=null;
+let _lastDragY=0;
+let _autoScrollActive=false;
+function _startAutoScroll(){
+  if(_autoScrollActive) return;
+  _autoScrollActive=true;
+  window.addEventListener('dragover',_trackDragY,true);
+  _autoScrollTimer=setInterval(()=>{
+    if(!_autoScrollActive) return;
+    const threshold=100; // 화면 상/하 100px 영역에서 스크롤 발동
+    const speed=20;       // 스크롤 속도 (px per tick)
+    const h=window.innerHeight;
+    if(_lastDragY>0 && _lastDragY<threshold){
+      // 위쪽 근처 → 위로 스크롤 (거리에 비례해 빠르게)
+      const factor=(threshold-_lastDragY)/threshold;
+      window.scrollBy(0,-Math.ceil(speed*Math.max(0.3,factor)));
+    } else if(_lastDragY>h-threshold){
+      // 아래쪽 근처 → 아래로 스크롤
+      const factor=(_lastDragY-(h-threshold))/threshold;
+      window.scrollBy(0,Math.ceil(speed*Math.max(0.3,factor)));
+    }
+  },30);
+}
+function _trackDragY(e){ _lastDragY=e.clientY; }
+function _stopAutoScroll(){
+  _autoScrollActive=false;
+  window.removeEventListener('dragover',_trackDragY,true);
+  if(_autoScrollTimer){clearInterval(_autoScrollTimer);_autoScrollTimer=null;}
+  _lastDragY=0;
+}
+
 function onDragStart(e,type,roomId,cellN,stuIdx){
   if(!S.editStudentMode){e.preventDefault();toast('✎ 개별편집 버튼을 먼저 켜주세요','err');return false;}
   dragSrc={type,roomId,cellN,stuIdx};
   e.dataTransfer.effectAllowed='move';
   e.dataTransfer.setData('text/plain','drag');
   setTimeout(()=>e.target?.classList.add('dragging'),0);
+  _startAutoScroll();
 }
-function onDragEnd(e){e.target?.classList.remove('dragging');dragSrc=null;S.swap=null;}
+function onDragEnd(e){
+  e.target?.classList.remove('dragging');
+  dragSrc=null;
+  S.swap=null;
+  _stopAutoScroll();
+}
 function onDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
 function onDragLeave(e){e.currentTarget.classList.remove('drag-over');}
 function onDrop(e,tRid,tN){
