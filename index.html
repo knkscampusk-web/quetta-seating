@@ -1422,15 +1422,36 @@ function mkCells(rows,cols){
   return c;
 }
 function renum(cells){
-  // 방어적: r, c가 문자열이면 숫자 변환 (정렬이 안전하게 동작하도록)
+  // 방어적: r, c가 문자열이면 숫자 변환
   cells.forEach(c=>{
     c.r=Number.isFinite(+c.r)?+c.r:0;
     c.c=Number.isFinite(+c.c)?+c.c:0;
   });
   // dn: 활성+미사용, 행 우선 (a.r → a.c) — 화면상 왼→오, 위→아래 순번
   [...cells].filter(c=>c.state!=='void').sort((a,b)=>a.r-b.r||a.c-b.c).forEach((c,i)=>c.dn=i+1);
-  // n: 활성만, 열 우선 (a.c → a.r) — 화면상 첫 열부터 세로 순서
-  [...cells].filter(c=>c.state==='active').sort((a,b)=>a.c-b.c||a.r-b.r).forEach((c,i)=>c.n=i+1);
+
+  // n: 활성 좌석에 부여
+  // 규칙: 화면상 뚜렷한 세로 라인 = 하나의 열
+  //  - 각 c 값의 활성 좌석 개수를 세서
+  //  - 활성 1개뿐인 c 값 열은 다음 큰 c 값 열에 자동 병합 (같은 가상 열 인덱스)
+  //  - 이렇게 하면: c=0에 활성 하나면 c=1 열의 마지막에 붙고, c=0에 여러 개면 독립된 첫 열
+  const cCounts={};
+  cells.filter(c=>c.state==='active').forEach(c=>{cCounts[c.c]=(cCounts[c.c]||0)+1;});
+  const cValues=Object.keys(cCounts).map(Number).sort((a,b)=>a-b);
+  const vColMap={};
+  let vColIdx=0;
+  for(let i=0;i<cValues.length;i++){
+    const cv=cValues[i];
+    vColMap[cv]=vColIdx;
+    // 활성이 1개뿐이고 다음 c 값이 있으면 → 병합 (vColIdx 증가 안 함)
+    if(!(cCounts[cv]===1 && i+1<cValues.length)) vColIdx++;
+  }
+  // vColIdx 오름차순, r 오름차순으로 정렬해서 n 부여
+  [...cells].filter(c=>c.state==='active').sort((a,b)=>{
+    const va=vColMap[a.c]??0, vb=vColMap[b.c]??0;
+    return va-vb||a.r-b.r;
+  }).forEach((c,i)=>c.n=i+1);
+
   cells.filter(c=>c.state==='void').forEach(c=>{c.dn=null;c.n=null;});
   cells.filter(c=>c.state==='blocked').forEach(c=>c.n=null);
 }
