@@ -704,7 +704,8 @@ input,select,textarea{font-family:inherit;cursor:auto}
           </div>
           <div class="fg" style="margin:0;width:72px">
             <label class="fl">좌석(표시번호)</label>
-            <input class="fi" id="es-seat" type="number" min="1" placeholder="번" style="padding:6px 9px;font-size:12px">
+            <input class="fi" id="es-seat" type="number" min="1" placeholder="예: 3" style="padding:6px 9px;font-size:12px" title="좌석 카드에 표시된 번호 (검정 배경 흰 글씨 번호)">
+            <div style="font-size:9px;color:var(--sl400);margin-top:2px">좌석 카드의 번호 그대로</div>
           </div>
         </div>
         <div style="margin-top:8px">
@@ -2160,7 +2161,7 @@ function uaHtml(room,ua){
   return`<div class="ua-panel">
     <div class="ua-hd">⚠ 좌석 미배정 학생 <b>${ua.length}명</b>
       ${mc?`<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:8px">강의실 불일치 ${mc}명</span>`:''}
-      <span style="margin-left:auto;font-size:10px;opacity:.7">클릭 → 정보수정·강제이동 | 드래그 → 좌석 직접 배치</span>
+      <span style="margin-left:auto;font-size:10px;opacity:.8;color:#15803d;font-weight:700">💡 학생을 원하는 빈 좌석 위로 드래그해서 놓으세요</span>
     </div>
     <div class="ua-body">${chips}</div>
   </div>`;
@@ -2607,12 +2608,19 @@ function onDrop(e,tRid,tN){
       doSwap(dragSrc.roomId,dragSrc.cellN,tRid,tN);
     }
   }else{
+    // 미배정 학생을 좌석에 배치
     const stu=S.students.find(s=>s._i===dragSrc.stuIdx);if(!stu) return;
-    saveUndo();
     const disp=S.students.find(s=>s.고사장===tRid&&+s.자리===tN);
-    if(disp){disp.고사장='';disp.자리=0;}
+    if(disp && disp._i!==stu._i){
+      if(!confirm(`⚠ "${disp.이름}"(${disp.학번}) 학생이 이미 앉아있는 자리입니다.\n\n[확인] → "${disp.이름}"을 미배정으로 밀어내고 "${stu.이름}" 배치\n[취소] → 이동 취소`)){
+        dragSrc=null;renderAll();return;
+      }
+    }
+    saveUndo();
+    if(disp && disp._i!==stu._i){disp.고사장='';disp.자리=0;}
     stu.고사장=tRid;stu.자리=tN;stu._mismatch=false;
-    saveAll();renderAll();toast(`${stu.이름} → ${tRid} 배치`,'ok');return;
+    saveAll();renderAll();toast(`✅ ${stu.이름} → ${tRid} 배치됨`,'ok');
+    dragSrc=null;return;
   }
   dragSrc=null;S.swap=null;renderAll();
 }
@@ -2850,10 +2858,22 @@ function forceMoveStu(){
   const tRid=document.getElementById('es-room').value;
   const tDn=+document.getElementById('es-seat').value;
   const shiftMode=document.querySelector('[name="es-shift"]:checked')?.value||'single';
-  if(!tRid||!tDn){toast('강의실과 좌석번호 입력','err');return;}
+  if(!tRid){toast('강의실을 선택해주세요','err');return;}
+  if(!tDn){toast('좌석 카드에 표시된 번호를 입력해주세요','err');return;}
   const tRoom=getRoom(tRid);if(!tRoom){toast('강의실 없음','err');return;}
   const tCell=tRoom.cells.find(c=>c.dn===tDn&&c.state==='active');
-  if(!tCell){toast(`${tRid} ${tDn}번 활성 좌석 없음`,'err');return;}
+  if(!tCell){
+    // 실패 원인 상세 분석
+    const anyCell=tRoom.cells.find(c=>c.dn===tDn);
+    if(anyCell){
+      const stateLabel=anyCell.state==='blocked'?'미사용 좌석':'좌석 아님';
+      toast(`❌ ${tRid} ${tDn}번은 ${stateLabel}입니다`,'err');
+    } else {
+      const maxDn=Math.max(...tRoom.cells.map(c=>c.dn||0));
+      toast(`❌ ${tRid}에 ${tDn}번 좌석이 없습니다 (범위: 1~${maxDn})`,'err');
+    }
+    return;
+  }
   const srcRid=stu.고사장,srcN=+stu.자리;
   const srcCell=getRoom(srcRid)?.cells.find(c=>c.n===srcN);
 
