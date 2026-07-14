@@ -94,6 +94,9 @@ input,select,textarea{font-family:inherit;cursor:auto}
 .sc:active{transform:scale(.97)}
 .sc.void{width:28px;min-height:72px;border:none!important;background:transparent;padding:0;pointer-events:none;border-radius:0}
 .sc.blocked{background:#f8f8f8;border:1.5px solid var(--sl300);cursor:not-allowed;width:82px;min-height:72px}
+.sc.force-assigned{background:#fff7ed !important;border:2px dashed #f97316 !important;cursor:pointer !important}
+.sc.force-assigned.male{background:#fff3ed !important}
+.sc.force-assigned.female{background:#fff0ec !important}
 .sc.blocked:hover{border-color:var(--sl300)!important;box-shadow:none!important}
 .sc.male{background:var(--m-bg);border-color:var(--m-bd)}
 .sc.female{background:var(--f-bg);border-color:var(--f-bd)}
@@ -1465,6 +1468,22 @@ function getColTemplate(room,isProctor,seatW){
 const getRoom=id=>S.rooms.find(r=>r.id===id);
 const roomStu=id=>S.students.filter(s=>s.고사장===id);
 const seatStu=(rid,n)=>S.students.find(s=>s.고사장===rid&&+s.자리===+n);
+// blocked 좌석에 강제 배정된 학생 찾기 (dn 기준)
+const seatStuByDn=(rid,dn)=>S.students.find(s=>s.고사장===rid&&+s._forceDn===+dn);
+// 학생이 실제로 좌석에 배정되어 있는지 (활성 좌석 or 강제 배정된 blocked 좌석)
+function isStuSeated(s){
+  if(!s.고사장) return false;
+  const room=getRoom(s.고사장);if(!room) return false;
+  // 활성 좌석 매핑
+  const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
+  if(validNs.has(+s.자리)) return true;
+  // blocked 좌석 강제 배정
+  if(s._forceDn){
+    const cell=room.cells.find(c=>+c.dn===+s._forceDn&&c.state==='blocked');
+    if(cell) return true;
+  }
+  return false;
+}
 const maskName=n=>{
   if(!n||n.length<=1) return n;
   // 끝에 붙은 영문/숫자 접미사 분리 (예: A, B, 2 등)
@@ -1960,7 +1979,8 @@ function renderTabs(){
       // displayContext 적용: 시행 종료 모의고사 (empty 모드)면 0으로 표시 (화면과 일관성)
       const ctx=resolveDisplayContext(r);
       const validNs=new Set(r.cells.filter(c=>c.state==='active').map(c=>c.n));
-      const actualCnt=roomStu(r.id).filter(s=>validNs.has(+s.자리)).length;
+      const blockedDns=new Set(r.cells.filter(c=>c.state==='blocked').map(c=>c.dn));
+      const actualCnt=roomStu(r.id).filter(s=>validNs.has(+s.자리)||(s._forceDn&&blockedDns.has(+s._forceDn))).length;
       const cnt=ctx.mode==='empty'?0:actualCnt;
       // 빈 좌석 모드일 때는 카운트 흐리게 표시 (학생 데이터는 있지만 화면엔 안 보임)
       const dimAttr=ctx.mode==='empty'?' style="opacity:0.45"':'';
@@ -2084,7 +2104,26 @@ function renderGrid(room,isProctor){
   cells.forEach(cell=>{
     if(cell.state==='void'){html+=`<div class="sc void"></div>`;return;}
     if(cell.state==='blocked'){
-      html+=`<div class="sc blocked" style="width:${seatW}px;min-height:72px"><div class="sn-wrap"><span></span><span class="sn">${cell.dn}</span></div><div class="s-blocked-lbl">미사용</div></div>`;return;
+      // blocked 좌석: 원래는 미사용이지만, 강제 배정된 학생 있으면 표시
+      const forceStu=seatStuByDn(room.id,cell.dn);
+      const banPfx=(S.cardPrefix&&S.cardPrefix.ban)||'';
+      const hakPfx=(S.cardPrefix&&S.cardPrefix.hak)||'';
+      if(forceStu && ctx.mode!=='empty'){
+        // 강제 배정된 학생 있음 → 학생 정보 + 미사용 배지 표시
+        let stuCls=(forceStu.성별==='남'?'male':forceStu.성별==='여'?'female':'')+' has-student force-assigned';
+        let inner=`<div class="sn-wrap"><span class="s-ban">${banPfx+(forceStu.반코드||'')}</span><span class="sn">${cell.dn}</span></div>`;
+        inner+=`<div class="s-hak">${hakPfx}${forceStu.학번}</div>
+                <div class="s-name"><span class="name-full">${forceStu.이름}</span><span class="name-mask">${maskName(forceStu.이름)}</span></div>
+                <div style="position:absolute;bottom:2px;right:3px;font-size:8px;font-weight:700;color:#dc2626;background:#fef2f2;padding:1px 4px;border-radius:3px;border:1px solid #fecaca" title="미사용 좌석에 강제 배정된 학생">강제</div>`;
+        if(isProctor) inner+=`<div class="bdgs">${gBdg(forceStu)}${tBdg(forceStu)}</div>`;
+        const ddSrc=`draggable="true" ondragstart="onDragStart(event,'seat-blocked','${room.id}',${cell.dn},${forceStu._i})" ondragend="onDragEnd(event)"`;
+        const ddTgt=`ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${room.id}',null,${cell.dn})"`;
+        html+=`<div class="sc ${stuCls}" style="width:${seatW}px;min-height:72px;position:relative" ${ddSrc} ${ddTgt} onclick="clickSeat('${room.id}',null,${cell.dn})">${inner}</div>`;
+        return;
+      }
+      // 기본 미사용 표시 (drop 가능 — 강제 배정 유도)
+      const ddTgt=`ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${room.id}',null,${cell.dn})"`;
+      html+=`<div class="sc blocked" style="width:${seatW}px;min-height:72px" ${ddTgt}><div class="sn-wrap"><span></span><span class="sn">${cell.dn}</span></div><div class="s-blocked-lbl">미사용</div></div>`;return;
     }
     // empty 모드(시행일 지남)면 학생 표시 X — 빈 좌석
     const stu = (ctx.mode==='empty') ? null : seatStu(room.id,cell.n);
@@ -2102,7 +2141,8 @@ function renderGrid(room,isProctor){
     const ddTgt=`ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${room.id}',${cell.n})"`;
     html+=`<div class="sc ${cls}" style="width:${seatW}px;min-height:72px" ${ddSrc} ${ddTgt} onclick="clickSeat('${room.id}',${cell.n})">${inner}</div>`;
   });
-  const ua=stus.filter(s=>!validNs.has(+s.자리));
+  const blockedDnsSet=new Set(room.cells.filter(c=>c.state==='blocked').map(c=>c.dn));
+  const ua=stus.filter(s=>!validNs.has(+s.자리)&&!(s._forceDn&&blockedDnsSet.has(+s._forceDn)));
   const editCls=S.editStudentMode?'edit-student-mode':'';
   const colTpl=getColTemplate(room,isProctor,seatW);
   const examObj=examByName(room.examType);
@@ -2317,7 +2357,12 @@ function _showNoRoomStus(){
     if(!s.고사장||!getRoom(s.고사장)) return true;
     const room=getRoom(s.고사장);
     const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
-    return !validNs.has(+s.자리);
+    if(validNs.has(+s.자리)) return false;
+    if(s._forceDn){
+      const bDns=new Set(room.cells.filter(c=>c.state==='blocked').map(c=>c.dn));
+      if(bDns.has(+s._forceDn)) return false;
+    }
+    return true;
   });
   showStusListModal('미배정 학생 명단', stus, `좌석에 배정되지 않은 학생 · ${stus.length}명`);
 }
@@ -2326,7 +2371,8 @@ function _showRoomUnassigned(roomId){
   const room=getRoom(roomId);
   if(!room){toast('강의실 없음','err');return;}
   const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
-  const stus=S.students.filter(s=>s.고사장===roomId && !validNs.has(+s.자리));
+  const blockedDns=new Set(room.cells.filter(c=>c.state==='blocked').map(c=>c.dn));
+  const stus=S.students.filter(s=>s.고사장===roomId && !validNs.has(+s.자리) && !(s._forceDn&&blockedDns.has(+s._forceDn)));
   showStusListModal(
     `"${room.name}" 미배정 학생 명단`,
     stus,
@@ -2400,18 +2446,25 @@ function renderStats(){
   const sag=stus.filter(s=>(s.탐구||'').includes('사과')).length;
   const cc={};stus.forEach(s=>{if(s.반)cc[s.반]=(cc[s.반]||0)+1;});
   // 강의실 미배정 학생 (어느 강의실에도 안 속함 / 강의실이 사라짐)
-  // 전체 미배정 학생: 강의실 없음 + 좌석 없음(자리가 활성 좌석에 없음) 모두 포함
+  // 전체 미배정 학생: 강의실 없음 + 좌석 없음(자리가 활성 좌석 or blocked 강제 배정 아님) 모두 포함
   const noRoomStus=S.students.filter(s=>{
     if(!s.고사장||!getRoom(s.고사장)) return true; // 강의실 자체가 없음
     const room=getRoom(s.고사장);
     const validNs=new Set(room.cells.filter(c=>c.state==='active').map(c=>c.n));
-    return !validNs.has(+s.자리); // 좌석에 배정 안 됨
+    if(validNs.has(+s.자리)) return false;
+    if(s._forceDn){
+      const bDns=new Set(room.cells.filter(c=>c.state==='blocked').map(c=>c.dn));
+      if(bDns.has(+s._forceDn)) return false;
+    }
+    return true;
   });
   const roomRows=fRooms.map(r=>{
     const rs=stus.filter(s=>s.고사장===r.id);
     const validNs=new Set(r.cells.filter(c=>c.state==='active').map(c=>c.n));
-    const assignedStus=rs.filter(s=>validNs.has(+s.자리));
-    const unassignedStus=rs.filter(s=>!validNs.has(+s.자리));
+    const blockedDns=new Set(r.cells.filter(c=>c.state==='blocked').map(c=>c.dn));
+    const isSeated=(s)=>validNs.has(+s.자리)||(s._forceDn&&blockedDns.has(+s._forceDn));
+    const assignedStus=rs.filter(isSeated);
+    const unassignedStus=rs.filter(s=>!isSeated(s));
     return{room:r,cnt:assignedStus.length,act:r.cells.filter(c=>c.state==='active').length,
       unassigned:unassignedStus.length,
       m:rs.filter(s=>s.성별==='남').length,f:rs.filter(s=>s.성별==='여').length,
@@ -2574,8 +2627,17 @@ function renderEdit(room){
 }
 
 /* ═══ SEAT INTERACTIONS ═══ */
-function clickSeat(roomId,n){
+function clickSeat(roomId,n,dn){
   if(S.view==='edit') return;
+  // blocked 좌석 클릭 (dn 인자로 옴)
+  if(dn!=null && n==null){
+    const cell=getRoom(roomId)?.cells.find(c=>c.dn===dn&&c.state==='blocked');
+    if(!cell) return;
+    if(!S.editStudentMode){toast('✎ 개별편집 버튼을 먼저 켜주세요','err');return;}
+    const forceStu=seatStuByDn(roomId,dn);
+    if(forceStu) openEditStu(forceStu._i);
+    return;
+  }
   const cell=getRoom(roomId)?.cells.find(c=>c.n===n);
   if(cell?.state==='blocked') return;
   if(!S.editStudentMode){toast('✎ 개별편집 버튼을 먼저 켜주세요','err');return;}
@@ -2645,13 +2707,81 @@ function onDragEnd(e){
 }
 function onDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
 function onDragLeave(e){e.currentTarget.classList.remove('drag-over');}
-function onDrop(e,tRid,tN){
+function onDrop(e,tRid,tN,tDn){
   e.preventDefault();e.currentTarget.classList.remove('drag-over');
   if(!dragSrc) return;
+  // blocked 좌석에 드롭 (tDn 파라미터 사용)
+  if(tDn!=null && tN==null){
+    const tRoom=getRoom(tRid);
+    const bCell=tRoom?.cells.find(c=>c.dn===tDn&&c.state==='blocked');
+    if(!bCell){dragSrc=null;return;}
+    // 드래그 소스에 따라 처리
+    let srcStu=null;
+    if(dragSrc.type==='seat'){
+      srcStu=S.students.find(s=>s.고사장===dragSrc.roomId&&+s.자리===dragSrc.cellN);
+    } else if(dragSrc.type==='seat-blocked'){
+      srcStu=S.students.find(s=>s.고사장===dragSrc.roomId&&+s._forceDn===dragSrc.cellN);
+    } else {
+      // 미배정 학생 (type==='unassigned')
+      srcStu=S.students.find(s=>s._i===dragSrc.stuIdx);
+    }
+    if(!srcStu){dragSrc=null;return;}
+    // blocked 좌석 강제 배정 confirm
+    const existing=seatStuByDn(tRid,tDn);
+    let msg=`⚠ 미사용 좌석(${tRid} ${tDn}번)에 학생을 강제 배정합니다.\n\n· 좌석은 여전히 "미사용" 상태로 유지됩니다\n· 이 학생만 예외적으로 이 자리에 앉힙니다`;
+    if(existing && existing._i!==srcStu._i){
+      msg+=`\n· 현재 "${existing.이름}"이 강제 배정되어 있어 미배정으로 밀립니다`;
+    }
+    msg+='\n\n계속하시겠습니까?';
+    if(!confirm(msg)){dragSrc=null;return;}
+    saveUndo();
+    // 기존 강제 배정 학생이 있으면 미배정
+    if(existing && existing._i!==srcStu._i){
+      existing.고사장='';existing.자리=0;delete existing._forceDn;
+    }
+    // 원래 자리 정리
+    if(dragSrc.type==='seat'){
+      // 다른 활성 좌석에서 온 경우: 그 자리 비움 (srcStu.자리는 어차피 덮어씀)
+    } else if(dragSrc.type==='seat-blocked'){
+      // 다른 blocked 좌석에서 온 경우: _forceDn 정리
+      delete srcStu._forceDn;
+    }
+    // 강제 배정
+    srcStu.고사장=tRid;
+    srcStu.자리=0; // 활성 좌석 아님
+    srcStu._forceDn=tDn;
+    srcStu._mismatch=false;
+    saveAll();renderAll();
+    toast(`✅ ${srcStu.이름} → ${tRid} ${tDn}번 (미사용 좌석 강제 배정)`,'ok');
+    dragSrc=null;return;
+  }
   const tc=getRoom(tRid)?.cells.find(c=>c.n===tN);
-  if(tc?.state==='blocked'){toast('미사용 좌석입니다','err');return;}
-  if(dragSrc.type==='seat'){
-    if(dragSrc.roomId===tRid&&dragSrc.cellN===tN) return;
+  if(tc?.state==='blocked'){toast('미사용 좌석입니다','err');dragSrc=null;return;}
+  if(dragSrc.type==='seat-blocked'){
+    // blocked 좌석 → 활성 좌석 이동: 단순 이동 (밀기/맞바꾸기 없음)
+    const srcStu=S.students.find(s=>s.고사장===dragSrc.roomId&&+s._forceDn===dragSrc.cellN);
+    if(!srcStu){dragSrc=null;return;}
+    const disp=S.students.find(s=>s.고사장===tRid&&+s.자리===tN);
+    if(disp && disp._i!==srcStu._i){
+      if(!confirm(`⚠ "${disp.이름}"(${disp.학번}) 학생이 이미 앉아있는 자리입니다.\n\n[확인] → "${disp.이름}"을 미배정으로 밀어내고 이동\n[취소] → 이동 취소`)){dragSrc=null;renderAll();return;}
+    }
+    saveUndo();
+    if(disp && disp._i!==srcStu._i){disp.고사장='';disp.자리=0;delete disp._forceDn;}
+    delete srcStu._forceDn; // 강제 배정 해제
+    srcStu.고사장=tRid;srcStu.자리=tN;srcStu._mismatch=false;
+    saveAll();renderAll();toast(`✅ ${srcStu.이름} → ${tRid} ${tN}번 (미사용 좌석 해제, 정상 배정)`,'ok');
+    dragSrc=null;return;
+  }
+  if(dragSrc.type==='seat' || dragSrc.type==='seat-blocked'){
+    // seat-blocked 소스: cellN에 dn이 들어있음 (blocked 좌석에서 시작한 드래그)
+    let srcStu;
+    if(dragSrc.type==='seat'){
+      srcStu=S.students.find(s=>s.고사장===dragSrc.roomId&&+s.자리===dragSrc.cellN);
+      if(dragSrc.roomId===tRid&&dragSrc.cellN===tN) return;
+    } else { // seat-blocked
+      srcStu=S.students.find(s=>s.고사장===dragSrc.roomId&&+s._forceDn===dragSrc.cellN);
+    }
+    if(!srcStu){dragSrc=null;return;}
     const targetStu=S.students.find(s=>s.고사장===tRid&&+s.자리===tN);
     if(targetStu){
       // 학생이 있는 자리로 드래그 → 맞바꾸기 or 밀기 선택
