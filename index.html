@@ -744,9 +744,9 @@ input,select,textarea{font-family:inherit;cursor:auto}
           <button class="btn btn-sec btn-sm" onclick="insertBeforeStu()">＋ 앞에 빈 자리 삽입</button>
         </div>
         <div style="font-size:10px;color:var(--sl400);margin-top:5px;line-height:1.6">
-          · <b>미배정으로 빼기</b>: 좌석만 비움. 학생 명단엔 남아서 다시 배정 가능<br>
-          · <b>미배정 + 뒤 당기기</b>: 좌석 비움 + 뒤 학생들 한 칸씩 앞으로<br>
-          · <b>완전 삭제</b>: 학생 명단에서 아예 제거. 되돌리려면 다시 업로드 필요<br>
+          · <b>미배정으로 빼기</b>: 좌석만 비움. <b>강의실 소속은 유지</b>돼서 그 강의실 미배정 명단에 표시됨<br>
+          · <b>미배정 + 뒤 당기기</b>: 좌석 비움 + 뒤 학생들 한 칸씩 앞으로 (강의실 소속 유지)<br>
+          · <b>완전 삭제</b>: 학생 명단에서 아예 제거. 되돌리려면 재업로드 필요<br>
           · <b>앞에 빈 자리 삽입</b>: 이 학생부터 뒤로 한 칸씩 밀림
         </div>
       </div>
@@ -3135,15 +3135,15 @@ function deleteStu(mode){
 
   saveUndo();
   if(mode==='unassign-pull' || mode==='pull'){
-    stu.고사장='';stu.자리=0;delete stu._forceDn;
+    stu.자리=0;delete stu._forceDn; // 강의실 소속(고사장)은 유지, 좌석만 비움
     if(roomId && stuN) shiftBackFrom(roomId,stuN);
-    toast(`${stu.이름} 미배정 + 뒤 학생 당기기 완료`,'ok');
-    writeLog('학생 미배정', `${stu.이름}(${stu.학번}) ${roomId} [당기기]`);
+    toast(`${stu.이름} 미배정 (${roomId}) + 뒤 학생 당기기`,'ok');
+    writeLog('학생 미배정', `${stu.이름}(${stu.학번}) ${roomId} [당기기, 강의실 소속 유지]`);
   } else {
     // unassign 또는 keep
-    stu.고사장='';stu.자리=0;delete stu._forceDn;
-    toast(`${stu.이름} → 미배정 처리 (명단엔 유지)`,'ok');
-    writeLog('학생 미배정', `${stu.이름}(${stu.학번}) ${roomId} [자리 비움]`);
+    stu.자리=0;delete stu._forceDn; // 강의실 소속(고사장)은 유지, 좌석만 비움
+    toast(`${stu.이름} → 미배정 (${roomId||'강의실 없음'})`,'ok');
+    writeLog('학생 미배정', `${stu.이름}(${stu.학번}) ${roomId} [자리 비움, 강의실 소속 유지]`);
   }
   saveAll();renderAll();closeModal('edit-stu-modal');
 }
