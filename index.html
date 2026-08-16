@@ -3740,6 +3740,7 @@ function lrsApply_orig(mode){/* deprecated — replaced by lrsApply above */}
 
 /* ═══ SNAPSHOT VIEWER (지난배치 조회 — 헤더 버튼) ═══ */
 let _viewSnapId=null,_viewSnapRoom=null;
+let _viewSnapMode='student'; // 'student' | 'proctor'
 function openSnapViewer(){
   _viewSnapId=null;_viewSnapRoom=null;
   renderSnapViewerList();
@@ -3792,10 +3793,30 @@ function renderSnapViewerDetail(snapId){
   room.cells.forEach(c=>{if(c.state!=='void') colEmpty[c.c]=false;});
   const colTpl=colEmpty.map(e=>e?'28px':`${seatW}px`).join(' ');
   const stusInRoom=sn.students.filter(s=>s.고사장===room.id);
+  const isProctorView=_viewSnapMode==='proctor';
   let cardsHTML='';
   sorted.forEach(cell=>{
     if(cell.state==='void'){cardsHTML+=`<div style="width:28px"></div>`;return;}
     if(cell.state==='blocked'){
+      // blocked 좌석에 강제 배정된 학생 있으면 표시
+      const forceStu=stusInRoom.find(s=>+s._forceDn===cell.dn);
+      if(forceStu){
+        const bg=forceStu.성별==='남'?'#eff6ff':forceStu.성별==='여'?'#fdf4ff':'#f8fafc';
+        const bd=forceStu.성별==='남'?'#93c5fd':forceStu.성별==='여'?'#d8b4fe':'#e2e8f0';
+        const _bPfx=(S.cardPrefix&&S.cardPrefix.ban)||'';
+        const _hPfx=(S.cardPrefix&&S.cardPrefix.hak)||'';
+        const badges=isProctorView?`<div style="display:flex;gap:2px;margin-top:2px;flex-wrap:wrap">${forceStu.성별?`<span style="font-size:8px;font-weight:700;background:${forceStu.성별==='남'?'#1e40af':'#a21caf'};color:#fff;padding:1px 4px;border-radius:3px">${forceStu.성별}</span>`:''}${forceStu.탐구?`<span style="font-size:8px;font-weight:700;background:#f59e0b;color:#fff;padding:1px 4px;border-radius:3px">${forceStu.탐구}</span>`:''}</div>`:'';
+        cardsHTML+=`<div style="border-radius:6px;border:1.5px solid ${bd};background:${bg};padding:4px 5px 5px;min-height:62px;width:${seatW}px;display:flex;flex-direction:column;gap:1px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:10px;font-weight:800;color:#2563eb;line-height:1.2">${_bPfx+(forceStu.반코드||'')}</span>
+            <span style="background:#1e293b;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px">${cell.dn}</span>
+          </div>
+          <div style="font-size:10px;font-weight:700;color:#475569;line-height:1.4;margin-top:2px">${_hPfx}${forceStu.학번}</div>
+          <div style="font-size:13px;font-weight:800;color:#0b1120;line-height:1.3;margin-top:2px">${forceStu.이름}</div>
+          ${badges}
+        </div>`;
+        return;
+      }
       cardsHTML+=`<div style="width:${seatW}px;min-height:62px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fafafa;padding:4px 5px 5px;display:flex;flex-direction:column">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span></span>
@@ -3816,6 +3837,9 @@ function renderSnapViewerDetail(snapId){
     if(stu){
       inner+=`<div style="font-size:10px;font-weight:700;color:#475569;line-height:1.4;margin-top:2px">${_hPfx}${stu.학번}</div>
               <div style="font-size:13px;font-weight:800;color:#0b1120;line-height:1.3;margin-top:2px">${stu.이름}</div>`;
+      if(isProctorView){
+        inner+=`<div style="display:flex;gap:2px;margin-top:2px;flex-wrap:wrap">${stu.성별?`<span style="font-size:8px;font-weight:700;background:${stu.성별==='남'?'#1e40af':'#a21caf'};color:#fff;padding:1px 4px;border-radius:3px">${stu.성별}</span>`:''}${stu.탐구?`<span style="font-size:8px;font-weight:700;background:#f59e0b;color:#fff;padding:1px 4px;border-radius:3px">${stu.탐구}</span>`:''}</div>`;
+      }
     } else inner+=`<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#e2e8f0;font-size:12px;margin-top:6px">·</div>`;
     cardsHTML+=`<div style="border-radius:6px;border:1.5px solid ${bd};background:${bg};padding:4px 5px 5px;min-height:62px;width:${seatW}px;display:flex;flex-direction:column;gap:1px">${inner}</div>`;
   });
@@ -3890,6 +3914,17 @@ function renderSnapViewerDetail(snapId){
       <span style="color:var(--sl400);font-size:11px">${sn.date} · 학생 ${sn.students.length}명 · 강의실 ${sn.rooms.length}개</span>
       ${adminFullLoadBtn}
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;padding:8px 10px;background:var(--sl50);border-radius:8px;border:1px solid var(--sl200)">
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-xs ${_viewSnapMode==='student'?'btn-pri':'btn-sec'}" onclick="_viewSnapMode='student';renderSnapViewerDetail('${snapId}')">👨‍🎓 학생용</button>
+        <button class="btn btn-xs ${_viewSnapMode==='proctor'?'btn-pri':'btn-sec'}" onclick="_viewSnapMode='proctor';renderSnapViewerDetail('${snapId}')">👨‍🏫 시감자용</button>
+      </div>
+      <span style="font-size:10px;color:var(--sl400)">${_viewSnapMode==='proctor'?'성별·탐구 배지 표시':'기본 학생용 화면'}</span>
+      <div style="margin-left:auto;display:flex;gap:5px">
+        <button class="btn btn-sec btn-xs" onclick="printSnapRoom('${snapId}','${room.id}','${_viewSnapMode}')" title="이 강의실 배치를 인쇄">🖨 인쇄</button>
+        <button class="btn btn-green btn-xs" onclick="downloadSnapExcel('${snapId}','${room.id}','${_viewSnapMode}')" title="배치표+명단 엑셀 다운로드">⬇ 엑셀</button>
+      </div>
+    </div>
     <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--sl200)">${roomTabs}</div>
     <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;font-size:11px;color:var(--sl500)">
       <span><b style="color:var(--ink)">${room.name}</b>${room.examType?` · ${room.examType}`:''}</span>
@@ -3906,6 +3941,231 @@ function renderSnapViewerDetail(snapId){
 }
 
 // (이전 버전에 있던 _changeLrsTarget 함수는 제거됨 — 단순화)
+
+/* ═══ 지난배치 인쇄 / 엑셀 다운로드 ═══ */
+// 인쇄: 학생용이면 마스킹 여부 물어봄, 시감자용은 바로 인쇄
+let _pendingSnapPrint=null;
+function printSnapRoom(snapId, roomId, viewMode){
+  const sn=findAnySnap(snapId);if(!sn){toast('스냅샷 없음','err');return;}
+  const room=sn.rooms.find(r=>r.id===roomId);if(!room){toast('강의실 없음','err');return;}
+  if(viewMode==='student'){
+    // 학생용은 마스킹 여부 물어봄
+    _pendingSnapPrint={snapId,roomId,viewMode};
+    // 기존 모달 재활용: 버튼의 onclick을 별도로 설정
+    document.getElementById('print-mask-modal').classList.add('on');
+    // 임시 override
+    const modalHtml=`
+      <div class="modal modal-sm">
+        <div class="mhd">
+          <span class="mhd-title">🖨 지난배치 학생용 인쇄</span>
+          <button class="btn btn-ghost" onclick="closeModal('print-mask-modal');_pendingSnapPrint=null">✕</button>
+        </div>
+        <div class="mbody">
+          <div style="font-size:12px;color:var(--sl500);margin-bottom:8px">"${sn.name}" · ${room.name}</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:16px;color:var(--sl700)">이름 마스킹 처리 여부를 선택하세요</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button class="btn btn-pri" style="justify-content:flex-start;padding:12px 16px;font-size:13px" onclick="closeModal('print-mask-modal');_execSnapPrint(true)">
+              <span style="font-size:16px">🙈</span>
+              <div style="text-align:left">
+                <div>이름 마스킹 적용</div>
+                <div style="font-size:11px;font-weight:400;opacity:.75">예) 홍길동 → 홍○동 (시험장 공개용)</div>
+              </div>
+            </button>
+            <button class="btn btn-sec" style="justify-content:flex-start;padding:12px 16px;font-size:13px" onclick="closeModal('print-mask-modal');_execSnapPrint(false)">
+              <span style="font-size:16px">👁</span>
+              <div style="text-align:left">
+                <div>이름 전체 표시</div>
+                <div style="font-size:11px;font-weight:400;opacity:.75">이름 그대로 인쇄 (내부 관리용)</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('print-mask-modal').innerHTML=modalHtml;
+    return;
+  }
+  // 시감자용: 바로 인쇄
+  _execSnapPrint(false);
+}
+
+function _execSnapPrint(maskNames){
+  if(!_pendingSnapPrint){
+    // 시감자용에서 직접 호출된 경우 컨텍스트 재구성
+    _pendingSnapPrint={snapId:_viewSnapId,roomId:_viewSnapRoom,viewMode:_viewSnapMode};
+  }
+  const {snapId,roomId,viewMode}=_pendingSnapPrint;
+  _pendingSnapPrint=null;
+  const sn=findAnySnap(snapId);if(!sn) return;
+  const room=sn.rooms.find(r=>r.id===roomId);if(!room) return;
+  const stusInRoom=sn.students.filter(s=>s.고사장===room.id);
+  const isProctorView=viewMode==='proctor';
+  const seatW=72;
+  const colEmpty=Array(room.cols).fill(true);
+  room.cells.forEach(c=>{if(c.state!=='void') colEmpty[c.c]=false;});
+  const colTpl=colEmpty.map(e=>e?'28px':`${seatW}px`).join(' ');
+  const sorted=[...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
+  const _bPfx=(S.cardPrefix&&S.cardPrefix.ban)||'';
+  const _hPfx=(S.cardPrefix&&S.cardPrefix.hak)||'';
+  // 좌석 카드 HTML 생성
+  let cardsHTML='';
+  sorted.forEach(cell=>{
+    if(cell.state==='void'){cardsHTML+=`<div style="width:28px"></div>`;return;}
+    if(cell.state==='blocked'){
+      const forceStu=stusInRoom.find(s=>+s._forceDn===cell.dn);
+      if(forceStu){
+        const bg=forceStu.성별==='남'?'#eff6ff':forceStu.성별==='여'?'#fdf4ff':'#fff';
+        const bd=forceStu.성별==='남'?'#93c5fd':forceStu.성별==='여'?'#d8b4fe':'#d5d5d5';
+        const name=maskNames&&!isProctorView?maskName(forceStu.이름):forceStu.이름;
+        cardsHTML+=`<div style="border-radius:6px;border:1px solid ${bd};background:${bg};padding:4px 5px 5px;min-height:56px;width:${seatW}px;display:flex;flex-direction:column;gap:1px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:10px;font-weight:800;color:#2563eb">${_bPfx+(forceStu.반코드||'')}</span>
+            <span style="background:#1e293b;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px">${cell.dn}</span>
+          </div>
+          <div style="font-size:10px;font-weight:700;color:#475569;margin-top:2px">${_hPfx}${forceStu.학번}</div>
+          <div style="font-size:13px;font-weight:800;color:#0b1120;margin-top:2px">${name}</div>
+          ${isProctorView?`<div style="display:flex;gap:2px;margin-top:2px;flex-wrap:wrap">${forceStu.성별?`<span style="font-size:8px;font-weight:700;background:${forceStu.성별==='남'?'#1e40af':'#a21caf'};color:#fff;padding:1px 4px;border-radius:3px">${forceStu.성별}</span>`:''}${forceStu.탐구?`<span style="font-size:8px;font-weight:700;background:#f59e0b;color:#fff;padding:1px 4px;border-radius:3px">${forceStu.탐구}</span>`:''}</div>`:''}
+        </div>`;return;
+      }
+      cardsHTML+=`<div style="width:${seatW}px;min-height:56px;border-radius:6px;border:1px solid #cbd5e1;background:#fafafa;padding:4px 5px 5px;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between"><span></span><span style="background:#94a3b8;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px">${cell.dn}</span></div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:9px;color:#94a3b8">미사용</div>
+      </div>`;return;
+    }
+    const stu=stusInRoom.find(s=>+s.자리===cell.n);
+    const bg=stu?(stu.성별==='남'?'#eff6ff':stu.성별==='여'?'#fdf4ff':'#fff'):'#fff';
+    const bd=stu?(stu.성별==='남'?'#93c5fd':stu.성별==='여'?'#d8b4fe':'#d5d5d5'):'#d5d5d5';
+    const name=stu?(maskNames&&!isProctorView?maskName(stu.이름):stu.이름):'';
+    let inner=`<div style="display:flex;justify-content:space-between"><span style="font-size:10px;font-weight:800;color:#2563eb">${stu?_bPfx+(stu.반코드||''):''}</span><span style="background:#1e293b;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px">${cell.dn}</span></div>`;
+    if(stu){
+      inner+=`<div style="font-size:10px;font-weight:700;color:#475569;margin-top:2px">${_hPfx}${stu.학번}</div><div style="font-size:13px;font-weight:800;color:#0b1120;margin-top:2px">${name}</div>`;
+      if(isProctorView){
+        inner+=`<div style="display:flex;gap:2px;margin-top:2px;flex-wrap:wrap">${stu.성별?`<span style="font-size:8px;font-weight:700;background:${stu.성별==='남'?'#1e40af':'#a21caf'};color:#fff;padding:1px 4px;border-radius:3px">${stu.성별}</span>`:''}${stu.탐구?`<span style="font-size:8px;font-weight:700;background:#f59e0b;color:#fff;padding:1px 4px;border-radius:3px">${stu.탐구}</span>`:''}</div>`;
+      }
+    } else inner+=`<div style="flex:1"></div>`;
+    cardsHTML+=`<div style="border-radius:6px;border:1px solid ${bd};background:${bg};padding:4px 5px 5px;min-height:56px;width:${seatW}px;display:flex;flex-direction:column;gap:1px">${inner}</div>`;
+  });
+  const boardW=seatW*room.cols+28*colEmpty.filter(e=>e).length+room.cols*3;
+  const w=window.open('','_blank');
+  if(!w){toast('팝업이 차단됨. 팝업 허용 후 다시 시도','err');return;}
+  const modeLabel=isProctorView?'시감자용':'학생용'+(maskNames?' (마스킹)':'');
+  w.document.write(`<!DOCTYPE html><html><head><title>${sn.name} - ${room.name} - ${modeLabel}</title>
+    <style>
+      @page{size:A4 portrait;margin:5mm}
+      *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif}
+      body{margin:0;padding:20px;background:#fff;color:#0b1120}
+      .head{margin-bottom:14px;text-align:center}
+      .head h1{margin:0;font-size:18px}
+      .head .sub{margin-top:4px;color:#64748b;font-size:12px}
+      .notice{background:#fefce8;border-left:3px solid #fde047;padding:5px 10px;color:#78350f;font-size:11px;margin:8px auto;max-width:${boardW}px}
+      .board{background:linear-gradient(135deg,#1e3a5f,#1e293b);border-radius:5px;padding:6px;text-align:center;font-size:12px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.75);margin:0 auto 10px;max-width:${boardW}px}
+      .grid{display:grid;grid-template-columns:${colTpl};gap:3px;width:fit-content;margin:0 auto}
+      @media print { body{padding:0} }
+    </style>
+  </head><body>
+    <div class="head">
+      <h1>${sn.name} - ${room.name}</h1>
+      <div class="sub">${sn.date} · ${modeLabel} · ${room.examType||''} · 배정 ${stusInRoom.filter(s=>{
+        const cell=room.cells.find(c=>+c.n===+s.자리&&c.state==='active');
+        if(cell) return true;
+        if(s._forceDn){const bc=room.cells.find(c=>+c.dn===+s._forceDn&&c.state==='blocked');if(bc) return true;}
+        return false;
+      }).length}명</div>
+    </div>
+    ${room.notice?`<div class="notice">📌 ${room.notice}</div>`:''}
+    <div class="board">칠 판</div>
+    <div class="grid">${cardsHTML}</div>
+    <scr`+`ipt>window.onload=function(){setTimeout(function(){window.print();},300);};</scr`+`ipt>
+  </body></html>`);
+  w.document.close();
+  toast(`🖨 ${sn.name} - ${room.name} (${modeLabel}) 인쇄 창을 열었습니다`,'ok');
+}
+
+// 엑셀 다운로드: 배치표 시트 + 명단 시트
+function downloadSnapExcel(snapId, roomId, viewMode){
+  const sn=findAnySnap(snapId);if(!sn){toast('스냅샷 없음','err');return;}
+  const room=sn.rooms.find(r=>r.id===roomId);if(!room){toast('강의실 없음','err');return;}
+  const stusInRoom=sn.students.filter(s=>s.고사장===room.id);
+  const isProctorView=viewMode==='proctor';
+  const wb=XLSX.utils.book_new();
+
+  // ── 시트 1: 배치표 (행/열 그대로) ──
+  const gridArr=[];
+  // 헤더 행: 칠판 표시
+  gridArr.push([`${sn.name} - ${room.name} - 배치표`]);
+  gridArr.push([`${sn.date} · ${room.examType||''} · ${isProctorView?'시감자용':'학생용'}`]);
+  gridArr.push([]);
+  gridArr.push(['','칠판 방향 ↑']);
+  gridArr.push([]);
+  // 좌석 그리드: rows x cols 매트릭스
+  for(let r=0;r<room.rows;r++){
+    const rowCells=[];
+    for(let c=0;c<room.cols;c++){
+      const cell=room.cells.find(x=>x.r===r&&x.c===c);
+      if(!cell || cell.state==='void'){rowCells.push('');continue;}
+      if(cell.state==='blocked'){
+        const forceStu=stusInRoom.find(s=>+s._forceDn===cell.dn);
+        if(forceStu){
+          let txt=`${forceStu.반||''} ${forceStu.학번||''}\n${forceStu.이름||''}`;
+          if(isProctorView){txt+=`\n${forceStu.성별||''} ${forceStu.탐구||''}`.trim();}
+          rowCells.push(txt);
+        } else {
+          rowCells.push(`(${cell.dn})\n미사용`);
+        }
+        continue;
+      }
+      // active
+      const stu=stusInRoom.find(s=>+s.자리===cell.n);
+      if(stu){
+        let txt=`${stu.반||''} ${stu.학번||''}\n${stu.이름||''}`;
+        if(isProctorView){txt+=`\n${stu.성별||''} ${stu.탐구||''}`.trim();}
+        rowCells.push(txt);
+      } else {
+        rowCells.push(`(${cell.dn})`);
+      }
+    }
+    gridArr.push(rowCells);
+  }
+  const ws1=XLSX.utils.aoa_to_sheet(gridArr);
+  ws1['!cols']=Array(room.cols).fill({wch:16});
+  ws1['!rows']=gridArr.map((_,i)=>i<5?{hpt:18}:{hpt:36});
+  XLSX.utils.book_append_sheet(wb,ws1,'배치표');
+
+  // ── 시트 2: 명단 리스트 ──
+  const listArr=[];
+  const listHead=isProctorView
+    ? ['좌석번호','반','학번','이름','성별','탐구','반코드']
+    : ['좌석번호','반','학번','이름','반코드'];
+  listArr.push(listHead);
+  // 좌석번호(dn) 순 정렬로 리스트업
+  const cellStuPairs=[];
+  room.cells.forEach(cell=>{
+    if(cell.state==='void') return;
+    if(cell.state==='active'){
+      const stu=stusInRoom.find(s=>+s.자리===cell.n);
+      if(stu) cellStuPairs.push({cell,stu});
+    } else if(cell.state==='blocked'){
+      const forceStu=stusInRoom.find(s=>+s._forceDn===cell.dn);
+      if(forceStu) cellStuPairs.push({cell,stu:forceStu});
+    }
+  });
+  cellStuPairs.sort((a,b)=>a.cell.dn-b.cell.dn);
+  cellStuPairs.forEach(({cell,stu})=>{
+    const row=isProctorView
+      ? [cell.dn, stu.반||'', stu.학번||'', stu.이름||'', stu.성별||'', stu.탐구||'', stu.반코드||'']
+      : [cell.dn, stu.반||'', stu.학번||'', stu.이름||'', stu.반코드||''];
+    listArr.push(row);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(listArr);
+  ws2['!cols']=listHead.map(()=>({wch:12}));
+  XLSX.utils.book_append_sheet(wb,ws2,'명단');
+
+  const today=new Date().toISOString().slice(0,10);
+  const modeLabel=isProctorView?'시감자용':'학생용';
+  const fileName=`${sn.name.replace(/[\\/:*?"<>|]/g,'_')}_${room.name}_${modeLabel}_${today}.xlsx`;
+  XLSX.writeFile(wb,fileName);
+  toast(`⬇ ${fileName} 다운로드됨`,'ok');
+  writeLog('지난배치 엑셀 다운로드', `${sn.name}/${room.name}/${modeLabel}`);
+}
 
 /* ═══ 전체 명단 엑셀 다운로드 (관리자 전용) ═══ */
 function downloadAllExcel(){
