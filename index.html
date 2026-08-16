@@ -3743,7 +3743,13 @@ let _viewSnapId=null,_viewSnapRoom=null;
 let _viewSnapMode='student'; // 'student' | 'proctor'
 function openSnapViewer(){
   _viewSnapId=null;_viewSnapRoom=null;
-  renderSnapViewerList();
+  // 다른 세션(다른 사용자)에서 저장한 스냅샷도 반영 위해 새 컬렉션 다시 로드
+  loadAllSnapsFromNewCollection().then(arr=>{
+    S.newSnapshots=arr;
+    renderSnapViewerList();
+  }).catch(()=>{
+    renderSnapViewerList(); // 실패해도 기존 데이터로 표시
+  });
   openModal('snap-view-modal');
 }
 function renderSnapViewerList(){
@@ -3753,11 +3759,16 @@ function renderSnapViewerList(){
   list.style.display='';detail.style.display='none';
   // 옛 + 새 모두 가져오기
   const all=getAllSnaps();
+  // 상단 툴바 (새로고침)
+  const toolbar=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+    <div style="font-size:11px;color:var(--sl500)">저장된 배치를 클릭하면 좌석 배열을 미리볼 수 있습니다. <span style="color:var(--sl400)">(다른 사용자가 저장한 것도 [🔄 새로고침]으로 확인)</span></div>
+    <button class="btn btn-sec btn-xs" onclick="_refreshSnapList()" title="Firebase에서 최신 스냅샷 목록을 다시 불러옵니다">🔄 새로고침</button>
+  </div>`;
   if(!all.length){
-    list.innerHTML='<div class="empty-state" style="padding:40px">저장된 배치가 없습니다.<br><span style="font-size:11px;color:var(--sl400)">⚙ 설정 → 저장/불러오기 또는 💾 저장 버튼에서 현재 배치를 저장할 수 있습니다.</span></div>';
+    list.innerHTML=toolbar+'<div class="empty-state" style="padding:40px">저장된 배치가 없습니다.<br><span style="font-size:11px;color:var(--sl400)">⚙ 설정 → 저장/불러오기 또는 💾 저장 버튼에서 현재 배치를 저장할 수 있습니다.</span></div>';
     return;
   }
-  list.innerHTML='<div style="font-size:11px;color:var(--sl500);margin-bottom:10px">저장된 배치를 클릭하면 좌석 배열을 미리볼 수 있습니다.</div>'+
+  list.innerHTML=toolbar+
     [...all].reverse().map(sn=>{
       const adminBtns=_adminMode?`
         <button class="btn btn-sec btn-xs" onclick="event.stopPropagation();if(confirm('현재 배치를 \\'${sn.name}\\'로 덮어쓰시겠습니까?')){closeModal('snap-view-modal');loadSnap('${sn.id}');}">현재로 불러오기</button>
@@ -3771,6 +3782,19 @@ function renderSnapViewerList(){
         <span style="font-size:11px;color:var(--sl400);margin-left:6px">미리보기 →</span>
       </div>`;
     }).join('');
+}
+// 스냅샷 목록 강제 새로고침 (다른 세션에서 저장된 것 반영)
+function _refreshSnapList(){
+  const list=document.getElementById('snap-view-list');
+  if(list) list.innerHTML='<div class="empty-state" style="padding:20px">🔄 최신 스냅샷 불러오는 중...</div>';
+  loadAllSnapsFromNewCollection().then(arr=>{
+    S.newSnapshots=arr;
+    renderSnapViewerList();
+    toast(`🔄 스냅샷 목록 갱신됨 (${arr.length}개)`,'ok');
+  }).catch(e=>{
+    renderSnapViewerList();
+    toast('새로고침 실패: '+e.message,'err');
+  });
 }
 function renderSnapViewerDetail(snapId){
   const sn=findAnySnap(snapId);if(!sn)return;
@@ -3922,7 +3946,7 @@ function renderSnapViewerDetail(snapId){
       <span style="font-size:10px;color:var(--sl400)">${_viewSnapMode==='proctor'?'성별·탐구 배지 표시':'기본 학생용 화면'}</span>
       <div style="margin-left:auto;display:flex;gap:5px">
         <button class="btn btn-sec btn-xs" onclick="printSnapRoom('${snapId}','${room.id}','${_viewSnapMode}')" title="이 강의실 배치를 인쇄">🖨 인쇄</button>
-        <button class="btn btn-green btn-xs" onclick="downloadSnapExcel('${snapId}','${room.id}','${_viewSnapMode}')" title="배치표+명단 엑셀 다운로드">⬇ 엑셀</button>
+        <button class="btn btn-green btn-xs" onclick="downloadSnapRoomExcel('${snapId}','${room.id}','${_viewSnapMode}')" title="이 강의실 배치표+명단 엑셀 다운로드">⬇ 엑셀</button>
       </div>
     </div>
     <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--sl200)">${roomTabs}</div>
@@ -4074,14 +4098,16 @@ function _execSnapPrint(maskNames){
     ${room.notice?`<div class="notice">📌 ${room.notice}</div>`:''}
     <div class="board">칠 판</div>
     <div class="grid">${cardsHTML}</div>
-    <scr`+`ipt>window.onload=function(){setTimeout(function(){window.print();},300);};</scr`+`ipt>
+    <scr`+`ipt>window.onload=function(){setTimeout(function(){window.focus();window.print();},300);};</scr`+`ipt>
   </body></html>`);
   w.document.close();
+  // 인쇄 창을 앞으로 (지난배치 조회 창 뒤에 숨어있지 않도록)
+  try{w.focus();}catch(e){}
   toast(`🖨 ${sn.name} - ${room.name} (${modeLabel}) 인쇄 창을 열었습니다`,'ok');
 }
 
-// 엑셀 다운로드: 배치표 시트 + 명단 시트
-function downloadSnapExcel(snapId, roomId, viewMode){
+// 엑셀 다운로드: 배치표 시트 + 명단 시트 (선택한 강의실만)
+function downloadSnapRoomExcel(snapId, roomId, viewMode){
   const sn=findAnySnap(snapId);if(!sn){toast('스냅샷 없음','err');return;}
   const room=sn.rooms.find(r=>r.id===roomId);if(!room){toast('강의실 없음','err');return;}
   const stusInRoom=sn.students.filter(s=>s.고사장===room.id);
