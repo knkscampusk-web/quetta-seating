@@ -2373,6 +2373,33 @@ function _showNoRoomStus(){
   });
   showStusListModal('미배정 학생 명단', stus, `좌석에 배정되지 않은 학생 · ${stus.length}명`);
 }
+// 통계 필터로 제외된 학생 명단 (전체 vs 통계 대상의 차이)
+function _showExcludedStus(){
+  const ef=_statsExam==='all'?null:_statsExam;
+  const excludedSet=new Set(S.excludedFromStats||[]);
+  const fRoomsBeforeExclude=ef?S.rooms.filter(r=>r.examType===ef):S.rooms;
+  const fRooms=fRoomsBeforeExclude.filter(r=>!excludedSet.has(r.id));
+  const fIds=new Set(fRooms.map(r=>r.id));
+  const excluded=S.students.filter(s=>!fIds.has(s.고사장));
+  // 사유 분류
+  const noRoom=excluded.filter(s=>!s.고사장||!getRoom(s.고사장));
+  const otherExam=excluded.filter(s=>{
+    if(!s.고사장||!getRoom(s.고사장)) return false;
+    const room=getRoom(s.고사장);
+    if(ef && room.examType!==ef) return true;
+    return false;
+  });
+  const excludedRoom=excluded.filter(s=>{
+    if(!s.고사장||!getRoom(s.고사장)) return false;
+    return excludedSet.has(s.고사장);
+  });
+  const scope=ef?`"${ef}" 모의고사 통계 필터`:'통계 필터';
+  const info=`총 ${excluded.length}명 통계에서 제외됨 (${scope} 기준)
+    · 강의실 소속 없음: ${noRoom.length}명
+    · 다른 모의고사 강의실: ${otherExam.length}명
+    · 통계에서 체크 해제된 강의실: ${excludedRoom.length}명`;
+  showStusListModal('통계 제외 학생 명단', excluded, info);
+}
 // 특정 강의실의 좌석 미배정 학생 명단 (강의실별 현황 표의 미배정 배지 클릭 시)
 function _showRoomUnassigned(roomId){
   const room=getRoom(roomId);
@@ -2452,6 +2479,9 @@ function renderStats(){
   const gwt=stus.filter(s=>(s.탐구||'').includes('과탐')).length;
   const sag=stus.filter(s=>(s.탐구||'').includes('사과')).length;
   const cc={};stus.forEach(s=>{if(s.반)cc[s.반]=(cc[s.반]||0)+1;});
+  // 전체 학생 수 vs 통계 대상 수 (필터로 제외된 인원 breakdown)
+  const totalAll=S.students.length;
+  const excludedByFilter=totalAll-stus.length; // 필터로 제외된 학생 수
   // 강의실 미배정 학생 (어느 강의실에도 안 속함 / 강의실이 사라짐)
   // 전체 미배정 학생: 강의실 없음 + 좌석 없음(자리가 활성 좌석 or blocked 강제 배정 아님) 모두 포함
   const noRoomStus=S.students.filter(s=>{
@@ -2513,9 +2543,14 @@ function renderStats(){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="card" style="padding:16px 18px">
-        <div class="ssub">전체 인원</div>
+        <div class="ssub">전체 인원 <span style="font-size:9px;color:var(--sl400);font-weight:400">(현재 필터 기준)</span></div>
         <div class="sbig">${total}<span style="font-size:16px;font-weight:600;color:var(--sl400)">명</span></div>
         <div style="margin-top:8px;font-size:12px;color:var(--sl500)">남 ${m}명 · 여 ${f}명</div>
+        ${excludedByFilter>0?`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--sl200);font-size:10px;color:var(--sl400);line-height:1.5">
+          <div>전체 학생 <b style="color:var(--sl600)">${totalAll}명</b> 중</div>
+          <div><b style="color:#c2410c">${excludedByFilter}명</b> 필터로 제외 <span style="cursor:pointer;color:#2563eb;text-decoration:underline" onclick="_showExcludedStus()">보기 ▸</span></div>
+          <div style="font-size:9px;color:var(--sl400);margin-top:3px">모의고사 필터·강의실 제외·소속 없음 등</div>
+        </div>`:''}
       </div>
       <div class="card" style="padding:16px 18px">
         <div class="ssub">탐구 선택</div>
