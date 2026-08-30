@@ -1746,15 +1746,15 @@ function handleUpload(e){
       }
 
       // === 기존 흐름 (수동 배정) ===
-      // 자리번호 매칭 헬퍼: dn(화면번호) 또는 n(업로드번호) 어느 쪽이든 활성 좌석과 매칭
+      // 자리번호 매칭 헬퍼: 다운받은 양식의 자리값은 n(업로드번호) 기준이므로 n을 먼저 시도
       const resolveSeat=(roomId,inputSeat)=>{
         const room=getRoom(roomId);if(!room||!inputSeat) return 0;
-        // 1) dn(화면 표시 번호)으로 시도
-        const byDn=room.cells.find(c=>c.dn===inputSeat && c.state==='active');
-        if(byDn) return byDn.n;
-        // 2) n(업로드 번호)으로 시도 (호환)
+        // 1) n(업로드 번호)으로 먼저 시도 — 다운받은 양식의 기본 값
         const byN=room.cells.find(c=>c.n===inputSeat && c.state==='active');
         if(byN) return byN.n;
+        // 2) dn(화면 표시 번호)으로 fallback — 사용자가 카드에 보이는 번호를 직접 넣은 경우 호환
+        const byDn=room.cells.find(c=>c.dn===inputSeat && c.state==='active');
+        if(byDn) return byDn.n;
         return 0; // 매칭 안됨 → 미배정
       };
       const parsed=rows.filter(r=>r[map.이름]&&r[map.학번]).map((r,i)=>{
