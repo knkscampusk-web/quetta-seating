@@ -886,29 +886,47 @@ input,select,textarea{font-family:inherit;cursor:auto}
 <div class="overlay" id="print-mask-modal" onclick="ovClose(event,'print-mask-modal')">
   <div class="modal modal-sm">
     <div class="mhd">
-      <span class="mhd-title">🖨 학생용 인쇄 옵션</span>
+      <span class="mhd-title">🖨 인쇄 옵션</span>
       <button class="btn btn-ghost" onclick="closeModal('print-mask-modal')">✕</button>
     </div>
     <div class="mbody">
-      <div style="font-size:13px;font-weight:600;margin-bottom:16px;color:var(--sl700)">이름 마스킹 처리 여부를 선택하세요</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn btn-pri" style="justify-content:flex-start;padding:12px 16px;font-size:13px"
-          onclick="closeModal('print-mask-modal');_pendingPrintAll?printAll('student',true):executePrint(true)">
-          <span style="font-size:16px">🙈</span>
-          <div style="text-align:left">
-            <div>이름 마스킹 적용</div>
-            <div style="font-size:11px;font-weight:400;opacity:.75">예) 홍길동 → 홍○동 &nbsp;(시험장 공개용)</div>
-          </div>
-        </button>
-        <button class="btn btn-sec" style="justify-content:flex-start;padding:12px 16px;font-size:13px"
-          onclick="closeModal('print-mask-modal');_pendingPrintAll?printAll('student',false):executePrint(false)">
-          <span style="font-size:16px">👁</span>
-          <div style="text-align:left">
-            <div>이름 전체 표시</div>
-            <div style="font-size:11px;font-weight:400;opacity:.75">이름 그대로 인쇄 &nbsp;(내부 관리용)</div>
-          </div>
-        </button>
+      <!-- 학생용 인쇄에서만 표시 (이름 마스킹) -->
+      <div id="pm-mask-section">
+        <div style="font-size:12px;font-weight:700;color:var(--sl700);margin-bottom:6px">이름 표시</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid var(--sl200);border-radius:6px;cursor:pointer;font-size:12px">
+            <input type="radio" name="pm-mask" value="true" checked style="cursor:pointer">
+            <span style="font-size:15px">🙈</span>
+            <div>
+              <div style="font-weight:700">마스킹 적용</div>
+              <div style="font-size:10px;color:var(--sl500)">홍길동 → 홍○동 (시험장 공개용)</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid var(--sl200);border-radius:6px;cursor:pointer;font-size:12px">
+            <input type="radio" name="pm-mask" value="false" style="cursor:pointer">
+            <span style="font-size:15px">👁</span>
+            <div>
+              <div style="font-weight:700">이름 전체 표시</div>
+              <div style="font-size:10px;color:var(--sl500)">이름 그대로 인쇄 (내부 관리용)</div>
+            </div>
+          </label>
+        </div>
       </div>
+      <!-- 공통 옵션 -->
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--sl700);margin-bottom:6px">추가 표시</div>
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid var(--sl200);border-radius:6px;cursor:pointer;font-size:12px">
+          <input type="checkbox" id="pm-show-infobar" style="cursor:pointer">
+          <div>
+            <div style="font-weight:700">반 코드 목록 포함</div>
+            <div style="font-size:10px;color:var(--sl500)">상단에 반 코드별 인원 표시 (A1·10, K1·11 등)</div>
+          </div>
+        </label>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-sec" onclick="closeModal('print-mask-modal')">취소</button>
+      <button class="btn btn-pri" onclick="_execPrintWithOpts()">🖨 인쇄 시작</button>
     </div>
   </div>
 </div>
@@ -1746,6 +1764,29 @@ function handleUpload(e){
       }
 
       // === 기존 흐름 (수동 배정) ===
+      // ✅ 강의실별 업로드에서 파일의 고사장 값이 대상 강의실과 다른 케이스 검증
+      if(_uploadRoomId!=='all' && map.고사장){
+        const excelRooms=new Set();
+        rows.forEach(r=>{
+          const rm=String(r[map.고사장]||'').trim();
+          if(rm) excelRooms.add(rm);
+        });
+        // 파일의 고사장 값이 하나뿐이고 대상 강의실과 다르면 확인
+        const excelRoomList=[...excelRooms].filter(rm=>rm!==_uploadRoomId);
+        if(excelRoomList.length>0 && excelRooms.size<=3){
+          const mismatchList=excelRoomList.join(', ');
+          const totalRows=rows.length;
+          const proceed=confirm(`⚠ 파일의 "고사장" 값(${mismatchList})이 대상 강의실 "${_uploadRoomId}"와 다릅니다.\n\n· 총 ${totalRows}행 (파일 강의실: ${[...excelRooms].join(', ')})\n\n[확인] 파일 고사장 무시하고 모두 "${_uploadRoomId}"에 배정\n[취소] 업로드 취소`);
+          if(!proceed){
+            uplMsg(`❌ 업로드 취소됨. 파일의 "고사장" 컬럼을 확인해주세요 (H열 = "${_uploadRoomId}"로 수정 or 삭제).`,'#7f1d1d');
+            toast('업로드 취소','err');
+            e.target.value='';
+            return;
+          }
+          // 확인했으므로 map.고사장을 무시하도록 처리
+          delete map.고사장;
+        }
+      }
       // 자리번호 매칭 헬퍼: 다운받은 양식의 자리값은 n(업로드번호) 기준이므로 n을 먼저 시도
       const resolveSeat=(roomId,inputSeat)=>{
         const room=getRoom(roomId);if(!room||!inputSeat) return 0;
@@ -4980,7 +5021,28 @@ function setView(v){
   if(S.active==='__stats__') switchRoom(S.rooms[0]?.id||null);
   else renderMain();
 }
-function openPrintMaskModal(mode){_pendingPrintAll=(mode==='all');openModal('print-mask-modal');}
+function openPrintMaskModal(mode){
+  _pendingPrintAll=(mode==='all');
+  // 시감자용은 이름 마스킹 섹션 숨김
+  const maskSec=document.getElementById('pm-mask-section');
+  if(maskSec) maskSec.style.display=(S.view==='proctor')?'none':'';
+  // 반 코드 표시 옵션 초기값: 시감자용은 켜짐(원래 시감자용에선 표시됐음), 학생용은 꺼짐
+  const infoCheck=document.getElementById('pm-show-infobar');
+  if(infoCheck) infoCheck.checked=(S.view==='proctor');
+  // 기본 라디오 (마스킹)
+  const mask=document.querySelector('[name="pm-mask"][value="true"]');
+  if(mask) mask.checked=true;
+  openModal('print-mask-modal');
+}
+// 옵션 모달에서 [🖨 인쇄 시작] 클릭
+function _execPrintWithOpts(){
+  const maskInput=document.querySelector('[name="pm-mask"]:checked');
+  const maskNames=(S.view==='proctor')?false:(maskInput?maskInput.value==='true':true);
+  const showInfoBar=document.getElementById('pm-show-infobar')?.checked||false;
+  closeModal('print-mask-modal');
+  if(_pendingPrintAll) printAll(S.view==='proctor'?'proctor':'student', maskNames, showInfoBar);
+  else executePrint(maskNames, showInfoBar);
+}
 function doPrint(){
   const isStudent=S.view==='student',isProctor=S.view==='proctor';
   if(!isStudent&&!isProctor){toast('학생용 또는 시감자용 화면에서 인쇄하세요','err');return;}
@@ -4992,10 +5054,10 @@ function doPrint(){
       saveNotice(S.active, ta.value);
     }
   }
-  if(isStudent){openPrintMaskModal('single');return;}
-  executePrint(false);
+  // 두 뷰 모두 옵션 모달 표시 (반코드 표시 여부 선택 가능)
+  openPrintMaskModal('single');
 }
-function executePrint(maskNames){
+function executePrint(maskNames, showInfoBar){
   const isProctor=S.view==='proctor';
   const styleId='__pstyle';document.getElementById(styleId)?.remove();
   const st=document.createElement('style');st.id=styleId;
@@ -5005,15 +5067,16 @@ function executePrint(maskNames){
     #printArea{margin:0 auto;width:fit-content}
     .sgrid{margin:0 auto}
   `;
+  const infoBarCss=showInfoBar?'flex':'none';
   if(isProctor){
     document.body.className='pp';
-    st.textContent=`@media print{${commonPrint}.name-full{display:inline!important}.name-mask{display:none!important}.cc-bar{display:flex!important}.info-bar{display:flex!important}}`;
+    st.textContent=`@media print{${commonPrint}.name-full{display:inline!important}.name-mask{display:none!important}.cc-bar{display:flex!important}.info-bar{display:${infoBarCss}!important}}`;
   }else if(maskNames){
     document.body.className='ps';
-    st.textContent=`@media print{${commonPrint}.name-full{display:none!important}.name-mask{display:inline!important}.info-bar,.cc-bar{display:none!important}}`;
+    st.textContent=`@media print{${commonPrint}.name-full{display:none!important}.name-mask{display:inline!important}.info-bar{display:${infoBarCss}!important}.cc-bar{display:none!important}}`;
   }else{
     document.body.className='';
-    st.textContent=`@media print{${commonPrint}.name-full{display:inline!important}.name-mask{display:none!important}.info-bar,.cc-bar{display:none!important}}`;
+    st.textContent=`@media print{${commonPrint}.name-full{display:inline!important}.name-mask{display:none!important}.info-bar{display:${infoBarCss}!important}.cc-bar{display:none!important}}`;
   }
   document.head.appendChild(st);
 
@@ -5074,7 +5137,7 @@ function executePrint(maskNames){
 }
 
 /* ═══ PRINT ALL ═══ */
-function printAll(mode,maskNames=false){
+function printAll(mode,maskNames=false,showInfoBar=false){
   const isStudent=mode==='student',seatW=78;
   const pages=S.rooms.map(room=>{
     const stus=roomStu(room.id);
@@ -5140,8 +5203,8 @@ function printAll(mode,maskNames=false){
             `<span style="background:#dcfce7;color:#14532d;font-weight:700;padding:1px 7px;border-radius:10px;font-size:9px">${b} ${c}명</span>`).join('')}
           <span style="margin-left:auto;font-size:9px;color:#64748b">계 ${stus.length}명</span>
          </div>`:'';
-    // ▼ "반 코드" 로 수정
-    const infoHtml=classEntries.length
+    // ▼ "반 코드" 로 수정 - 옵션으로 표시 여부 결정
+    const infoHtml=(classEntries.length && showInfoBar)
       ?`<div style="font-size:10px;display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">
           <span style="font-weight:700;color:#94a3b8">반 코드</span>
           ${classEntries.map(([b,c])=>`<span style="background:#dbeafe;color:#1e40af;font-weight:800;padding:1px 6px;border-radius:10px;font-size:9px">${b}·${c}</span>`).join('')}
