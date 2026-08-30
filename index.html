@@ -1772,6 +1772,28 @@ function handleUpload(e){
           반코드:String(r[map.반코드]||'').trim(),고사장:assignRoom,자리:assignSeat,
           _inputSeat:inputSeat, _seatMismatch:(inputSeat>0 && assignSeat===0)};
       });
+
+      // ✅ 좌석 매칭 실패 검증 (강의실별 업로드만 해당 — 전체 업로드는 예외적으로 매칭 실패 허용)
+      if(_uploadRoomId!=='all'){
+        const seatMissCount=parsed.filter(s=>s._seatMismatch).length;
+        if(seatMissCount>0){
+          const totalCount=parsed.length;
+          const allFailed=seatMissCount===totalCount;
+          let confirmMsg;
+          if(allFailed){
+            confirmMsg=`❌ 자리번호가 활성 좌석과 매칭되는 학생이 하나도 없습니다.\n\n· 총 ${totalCount}명 모두 매칭 실패\n· 좌석 카드에 표시된 번호(dn)로 넣어야 합니다\n\n업로드를 진행하시겠습니까?\n\n[확인] 매칭 실패한 학생도 미배정으로 저장\n[취소] 업로드 취소 (기존 데이터 유지)`;
+          } else {
+            confirmMsg=`⚠ ${seatMissCount}/${totalCount}명의 자리번호가 활성 좌석과 매칭되지 않습니다.\n\n· 좌석 카드에 표시된 번호(dn)로 넣어야 합니다\n\n계속 진행하시겠습니까?\n\n[확인] 매칭 성공한 ${totalCount-seatMissCount}명 배정 + 실패 ${seatMissCount}명 미배정\n[취소] 업로드 취소 (기존 데이터 유지)`;
+          }
+          if(!confirm(confirmMsg)){
+            uplMsg(`❌ 업로드 취소됨. 기존 데이터가 유지됩니다. 자리번호를 확인해주세요.`,'#7f1d1d');
+            toast('업로드 취소','err');
+            e.target.value='';
+            return;
+          }
+        }
+      }
+
       if(_uploadRoomId==='all'){
         [...new Set(parsed.map(s=>s.고사장).filter(Boolean))].forEach(rn=>{if(!getRoom(rn))S.rooms.push(mkRoom(rn,8,9));});
         S.students=parsed;
