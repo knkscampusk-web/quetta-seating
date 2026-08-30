@@ -405,7 +405,7 @@ input,select,textarea{font-family:inherit;cursor:auto}
   <div style="width:1px;height:18px;background:var(--sl200);margin:0 2px"></div>
   <span id="admin-print-btns" style="display:none;gap:5px;align-items:center">
     <button class="btn btn-sec btn-sm" onclick="openPrintMaskModal('all','student')">🖨 전체인쇄(학생)</button>
-    <button class="btn btn-sec btn-sm" onclick="openPrintMaskModal('all','proctor')">🖨 전체인쇄(시감)</button>
+    <button class="btn btn-sec btn-sm" onclick="printAll('proctor',false,true)">🖨 전체인쇄(시감)</button>
   </span>
 </div>
 
@@ -5062,8 +5062,13 @@ function doPrint(){
       saveNotice(S.active, ta.value);
     }
   }
-  // 두 뷰 모두 옵션 모달 표시 (반코드 표시 여부 선택 가능)
-  openPrintMaskModal('single');
+  if(isStudent){
+    // 학생용: 옵션 모달 (마스킹 + 반코드 포함 선택)
+    openPrintMaskModal('single','student');
+    return;
+  }
+  // 시감자용: 옵션 없이 바로 인쇄 (반코드 포함, 이름 전체)
+  executePrint(false, true);
 }
 function executePrint(maskNames, showInfoBar){
   const isProctor=S.view==='proctor';
