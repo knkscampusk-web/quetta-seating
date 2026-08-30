@@ -855,6 +855,13 @@ input,select,textarea{font-family:inherit;cursor:auto}
     </div>
     <div class="mbody">
       <div id="stus-list-info" style="font-size:11px;color:var(--sl400);margin-bottom:10px"></div>
+      <div id="stus-list-bulk-toolbar" style="display:none;margin-bottom:10px;padding:8px 10px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;align-items:center;gap:10px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;cursor:pointer">
+          <input type="checkbox" id="stus-list-all-check" onchange="_stusListToggleAll(this.checked)"> 전체 선택
+        </label>
+        <span style="font-size:11px;color:#78350f">선택된 학생: <b id="stus-list-selected-cnt">0</b>명</span>
+        <button class="btn btn-danger btn-xs" style="margin-left:auto" onclick="_stusListBulkDelete()">🗑 선택한 학생 일괄 삭제</button>
+      </div>
       <div id="stus-list-content" style="max-height:500px;overflow-y:auto"></div>
     </div>
   </div>
@@ -2292,8 +2299,10 @@ function _tamguRow(kind,cnt,tagClass){
 
 /* ═══ 학생 명단 모달 (탐구 미지정 등 카운트 클릭 시) ═══ */
 let _stusListSnapshot=null;
+let _stusListSelected=new Set();
 function showStusListModal(title, students, info, goRoomId){
   _stusListSnapshot=students.slice();
+  _stusListSelected=new Set(); // 선택된 학생 _i 값
   document.getElementById('stus-list-title').textContent=title;
   // info + 강의실 이동 버튼
   const infoEl=document.getElementById('stus-list-info');
@@ -2306,6 +2315,15 @@ function showStusListModal(title, students, info, goRoomId){
   infoEl.style.justifyContent='space-between';
   infoEl.style.flexWrap='wrap';
   infoEl.style.gap='8px';
+  // 일괄 삭제 툴바: 관리자 + 학생 있을 때만
+  const toolbar=document.getElementById('stus-list-bulk-toolbar');
+  if(_adminMode && students.length>0){
+    toolbar.style.display='flex';
+    document.getElementById('stus-list-all-check').checked=false;
+    document.getElementById('stus-list-selected-cnt').textContent='0';
+  } else {
+    toolbar.style.display='none';
+  }
   const content=document.getElementById('stus-list-content');
   if(!students.length){
     content.innerHTML='<div class="empty-state">표시할 학생이 없습니다.</div>';
@@ -2338,6 +2356,7 @@ function showStusListModal(title, students, info, goRoomId){
               ? `<span style="font-size:10px;color:#2563eb;font-weight:700;cursor:pointer;padding:2px 7px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;margin-right:4px" onclick="event.stopPropagation();_goToRoom('${mappedRoomId}')" title="이 학생의 원래 소속 강의실로 이동">→ ${mappedRoomName} ▸</span>`
               : (noRoom && s.반 ? `<span style="font-size:10px;color:#92400e;background:#fef3c7;padding:2px 7px;border-radius:5px;margin-right:4px" title="이 반은 매핑 등록 안 됨">${s.반}: 매핑 없음</span>` : '');
             return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;${i<stus.length-1?'border-bottom:1px solid var(--sl100);':''}font-size:12px">
+              ${_adminMode?`<input type="checkbox" class="stus-list-check" data-idx="${s._i}" onchange="_stusListToggleOne(${s._i},this.checked)" onclick="event.stopPropagation()" style="cursor:pointer;margin-right:4px">`:''}
               <span style="flex:1;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openEditStu(${s._i});closeModal('stus-list-modal')">
                 <span style="min-width:42px;font-weight:700;color:#2563eb;font-family:monospace">${s.반||''}</span>
                 <span style="min-width:50px;color:var(--sl500);font-family:monospace">${s.학번||''}</span>
@@ -2442,6 +2461,48 @@ function _goToRoom(roomId){
   if(!getRoom(roomId)){toast('강의실 없음','err');return;}
   closeModal('stus-list-modal');
   switchRoom(roomId);
+}
+// 학생 명단 모달 - 개별 체크박스 토글
+function _stusListToggleOne(stuIdx, checked){
+  if(checked) _stusListSelected.add(stuIdx);
+  else _stusListSelected.delete(stuIdx);
+  document.getElementById('stus-list-selected-cnt').textContent=_stusListSelected.size;
+  // 전체 선택 체크박스 상태 동기화
+  const allChecks=document.querySelectorAll('#stus-list-content .stus-list-check');
+  const allCheck=document.getElementById('stus-list-all-check');
+  if(allCheck){
+    allCheck.checked=allChecks.length>0 && Array.from(allChecks).every(c=>c.checked);
+  }
+}
+// 학생 명단 모달 - 전체 선택 토글
+function _stusListToggleAll(checked){
+  _stusListSelected.clear();
+  document.querySelectorAll('#stus-list-content .stus-list-check').forEach(c=>{
+    c.checked=checked;
+    if(checked) _stusListSelected.add(+c.dataset.idx);
+  });
+  document.getElementById('stus-list-selected-cnt').textContent=_stusListSelected.size;
+}
+// 학생 명단 모달 - 선택 학생 일괄 삭제
+function _stusListBulkDelete(){
+  if(!_adminMode){toast('관리자 모드 필요','err');return;}
+  const ids=Array.from(_stusListSelected);
+  if(!ids.length){toast('선택된 학생 없음','err');return;}
+  const targets=ids.map(idx=>S.students.find(s=>s._i===idx)).filter(Boolean);
+  if(!targets.length){toast('학생 찾기 실패','err');return;}
+  // 확인
+  const names=targets.slice(0,5).map(s=>s.이름).join(', ')+(targets.length>5?` 외 ${targets.length-5}명`:'');
+  if(!confirm(`⚠ 선택한 ${targets.length}명을 명단에서 완전히 삭제합니다.\n\n대상: ${names}\n\n· 학생 데이터가 완전히 사라집니다\n· 되돌리려면 ↩ 취소 또는 재업로드 필요\n\n계속하시겠습니까?`)) return;
+  saveUndo();
+  const idsSet=new Set(ids);
+  S.students=S.students.filter(s=>!idsSet.has(s._i));
+  S.students.forEach((s,i)=>s._i=i);
+  saveAll();
+  closeModal('stus-list-modal');
+  renderAll();
+  toast(`✅ ${targets.length}명 완전 삭제됨`,'ok');
+  writeLog('학생 일괄 삭제', `${targets.length}명 [명단 모달]`);
+  _stusListSelected.clear();
 }
 // 학생 명단 모달에서 학생 삭제 (관리자 전용)
 function _deleteStuFromList(stuIdx){
