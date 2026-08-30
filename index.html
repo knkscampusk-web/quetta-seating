@@ -1739,10 +1739,22 @@ function handleUpload(e){
       }
 
       // === 기존 흐름 (수동 배정) ===
+      // 자리번호 매칭 헬퍼: dn(화면번호) 또는 n(업로드번호) 어느 쪽이든 활성 좌석과 매칭
+      const resolveSeat=(roomId,inputSeat)=>{
+        const room=getRoom(roomId);if(!room||!inputSeat) return 0;
+        // 1) dn(화면 표시 번호)으로 시도
+        const byDn=room.cells.find(c=>c.dn===inputSeat && c.state==='active');
+        if(byDn) return byDn.n;
+        // 2) n(업로드 번호)으로 시도 (호환)
+        const byN=room.cells.find(c=>c.n===inputSeat && c.state==='active');
+        if(byN) return byN.n;
+        return 0; // 매칭 안됨 → 미배정
+      };
       const parsed=rows.filter(r=>r[map.이름]&&r[map.학번]).map((r,i)=>{
         const excelRoom=map[map.고사장]!==undefined?String(r[map.고사장]||'').trim():'';
         const targetRoom=_uploadRoomId!=='all'?_uploadRoomId:excelRoom;
-        let assignRoom=targetRoom,assignSeat=+r[map.자리]||0;
+        const inputSeat=+r[map.자리]||0;
+        let assignRoom=targetRoom,assignSeat=resolveSeat(assignRoom,inputSeat);
         if(_uploadRoomId!=='all'&&map[map.고사장]!==undefined&&excelRoom&&excelRoom!==_uploadRoomId){
           assignRoom=_uploadRoomId;assignSeat=0;
         }
@@ -1750,7 +1762,8 @@ function handleUpload(e){
           반:String(r[map.반]||'').trim(),성별:String(r[map.성별]||'').trim(),
           이름:String(r[map.이름]||'').trim(),학번:String(r[map.학번]||'').trim(),
           수학선택:String(r[map.수학선택]||'').trim(),탐구:String(r[map.탐구]||'').trim(),
-          반코드:String(r[map.반코드]||'').trim(),고사장:assignRoom,자리:assignSeat};
+          반코드:String(r[map.반코드]||'').trim(),고사장:assignRoom,자리:assignSeat,
+          _inputSeat:inputSeat, _seatMismatch:(inputSeat>0 && assignSeat===0)};
       });
       if(_uploadRoomId==='all'){
         [...new Set(parsed.map(s=>s.고사장).filter(Boolean))].forEach(rn=>{if(!getRoom(rn))S.rooms.push(mkRoom(rn,8,9));});
@@ -1769,11 +1782,18 @@ function handleUpload(e){
         S.students.push(...parsed);S.students.forEach((s,i)=>s._i=i);
       }
       const mc=parsed.filter(s=>s._mismatch).length;
+      const sm=parsed.filter(s=>s._seatMismatch).length; // 좌석 매칭 실패
+      // 임시 필드 정리
+      parsed.forEach(s=>{delete s._inputSeat;delete s._seatMismatch;});
       const selExam=(_uploadRoomId==='all')?(document.getElementById('upl-exam')?.value||''):'';
       saveAll();renderAll();
-      writeLog('명단 업로드', `${_uploadRoomId} · ${parsed.length}명${mc?` (불일치 ${mc}명)`:''}${selExam?` [${selExam}]`:''}`);
-      uplMsg(`✅ ${parsed.length}명 업로드 완료${mc?` (미배정 ${mc}명)`:''}${selExam?` · 모의고사: <b>${selExam}</b>`:''}`,'#14532d');
-      toast(`${parsed.length}명 업로드 완료`+(mc?` · 미배정 ${mc}명`:'')+(selExam?` · ${selExam}`:''),'ok');
+      writeLog('명단 업로드', `${_uploadRoomId} · ${parsed.length}명${mc?` (불일치 ${mc}명)`:''}${sm?` (좌석매칭실패 ${sm}명)`:''}${selExam?` [${selExam}]`:''}`);
+      let msg=`✅ ${parsed.length}명 업로드 완료${mc?` (강의실 불일치 ${mc}명)`:''}${selExam?` · 모의고사: <b>${selExam}</b>`:''}`;
+      if(sm){
+        msg+=`<br><span style="color:#7f1d1d">⚠ ${sm}명의 자리번호가 활성 좌석과 매칭 안돼서 미배정 처리됨. 좌석 카드에 표시된 번호로 넣어주세요.</span>`;
+      }
+      uplMsg(msg,'#14532d');
+      toast(`${parsed.length}명 업로드 완료`+(mc?` · 불일치 ${mc}`:'')+(sm?` · 좌석매칭실패 ${sm}`:'')+(selExam?` · ${selExam}`:''),'ok');
     }catch(err){uplMsg(`❌ 오류: ${err.message}`,'#7f1d1d');}
     e.target.value='';
   };
@@ -2317,13 +2337,16 @@ function showStusListModal(title, students, info, goRoomId){
             const mappedHtml=mappedRoomName
               ? `<span style="font-size:10px;color:#2563eb;font-weight:700;cursor:pointer;padding:2px 7px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;margin-right:4px" onclick="event.stopPropagation();_goToRoom('${mappedRoomId}')" title="이 학생의 원래 소속 강의실로 이동">→ ${mappedRoomName} ▸</span>`
               : (noRoom && s.반 ? `<span style="font-size:10px;color:#92400e;background:#fef3c7;padding:2px 7px;border-radius:5px;margin-right:4px" title="이 반은 매핑 등록 안 됨">${s.반}: 매핑 없음</span>` : '');
-            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;${i<stus.length-1?'border-bottom:1px solid var(--sl100);':''}font-size:12px;cursor:pointer" onclick="openEditStu(${s._i});closeModal('stus-list-modal')">
-              <span style="min-width:42px;font-weight:700;color:#2563eb;font-family:monospace">${s.반||''}</span>
-              <span style="min-width:50px;color:var(--sl500);font-family:monospace">${s.학번||''}</span>
-              <span style="min-width:24px;color:var(--sl400);font-size:11px">${s.성별||''}</span>
-              <span style="flex:1;font-weight:600">${s.이름||''}</span>
-              ${mappedHtml}
-              <span style="font-size:10px;color:${s.탐구?'var(--sl400)':'#dc2626'}">${s.탐구||'탐구 미지정'}</span>
+            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;${i<stus.length-1?'border-bottom:1px solid var(--sl100);':''}font-size:12px">
+              <span style="flex:1;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openEditStu(${s._i});closeModal('stus-list-modal')">
+                <span style="min-width:42px;font-weight:700;color:#2563eb;font-family:monospace">${s.반||''}</span>
+                <span style="min-width:50px;color:var(--sl500);font-family:monospace">${s.학번||''}</span>
+                <span style="min-width:24px;color:var(--sl400);font-size:11px">${s.성별||''}</span>
+                <span style="flex:1;font-weight:600">${s.이름||''}</span>
+                ${mappedHtml}
+                <span style="font-size:10px;color:${s.탐구?'var(--sl400)':'#dc2626'}">${s.탐구||'탐구 미지정'}</span>
+              </span>
+              ${_adminMode?`<button class="btn btn-xs" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:2px 8px;font-size:10px;font-weight:700;cursor:pointer;border-radius:4px" onclick="event.stopPropagation();_deleteStuFromList(${s._i})" title="이 학생을 명단에서 완전 삭제">🗑</button>`:''}
             </div>`;
           }).join('')}
         </div>
@@ -2419,6 +2442,30 @@ function _goToRoom(roomId){
   if(!getRoom(roomId)){toast('강의실 없음','err');return;}
   closeModal('stus-list-modal');
   switchRoom(roomId);
+}
+// 학생 명단 모달에서 학생 삭제 (관리자 전용)
+function _deleteStuFromList(stuIdx){
+  if(!_adminMode){toast('관리자 모드 필요','err');return;}
+  const stu=S.students.find(s=>s._i===stuIdx);if(!stu){toast('학생 없음','err');return;}
+  // 삭제 방식 선택: 미배정 또는 완전 삭제
+  const choice=confirm(`"${stu.이름}"(${stu.학번}) 학생 처리\n\n[확인] 완전 삭제 (명단에서 제거)\n[취소] 취소`);
+  if(!choice) return;
+  // 완전 삭제 재확인
+  if(!confirm(`⚠ "${stu.이름}"을 명단에서 완전히 삭제합니다. 되돌리려면 ↩ 취소 또는 재업로드 필요.\n\n계속하시겠습니까?`)) return;
+  saveUndo();
+  const idx=S.students.findIndex(s=>s._i===stu._i);
+  if(idx>=0) S.students.splice(idx,1);
+  S.students.forEach((s,i)=>s._i=i);
+  saveAll();
+  // 모달 열려있으면 다시 렌더 (모달 내 리스트 즉시 반영)
+  const stusListModal=document.getElementById('stus-list-modal');
+  if(stusListModal && stusListModal.classList.contains('on')){
+    // 현재 열린 모달을 재-랜더링하는 게 복잡하므로 그냥 닫기
+    closeModal('stus-list-modal');
+  }
+  renderAll();
+  toast(`${stu.이름} 완전 삭제됨`,'ok');
+  writeLog('학생 완전 삭제', `${stu.이름}(${stu.학번}) [명단 모달에서]`);
 }
 
 /* ═══ 강의실 모의고사 빠른 선택 모달 (지난배치 불러온 후 자동) ═══ */
