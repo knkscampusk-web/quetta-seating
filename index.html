@@ -404,8 +404,8 @@ input,select,textarea{font-family:inherit;cursor:auto}
   <button class="btn btn-sec btn-sm" onclick="doPrint()">🖨 인쇄</button>
   <div style="width:1px;height:18px;background:var(--sl200);margin:0 2px"></div>
   <span id="admin-print-btns" style="display:none;gap:5px;align-items:center">
-    <button class="btn btn-sec btn-sm" onclick="openPrintMaskModal('all')">🖨 전체인쇄(학생)</button>
-    <button class="btn btn-sec btn-sm" onclick="printAll('proctor')">🖨 전체인쇄(시감)</button>
+    <button class="btn btn-sec btn-sm" onclick="openPrintMaskModal('all','student')">🖨 전체인쇄(학생)</button>
+    <button class="btn btn-sec btn-sm" onclick="openPrintMaskModal('all','proctor')">🖨 전체인쇄(시감)</button>
   </span>
 </div>
 
@@ -5021,14 +5021,16 @@ function setView(v){
   if(S.active==='__stats__') switchRoom(S.rooms[0]?.id||null);
   else renderMain();
 }
-function openPrintMaskModal(mode){
+let _pendingPrintView=null; // 'student' | 'proctor' — 이 인쇄가 어떤 뷰용인지 명시적
+function openPrintMaskModal(mode, targetView){
   _pendingPrintAll=(mode==='all');
+  _pendingPrintView=targetView||S.view; // 명시 안 하면 현재 뷰 사용 (개별 인쇄용)
   // 시감자용은 이름 마스킹 섹션 숨김
   const maskSec=document.getElementById('pm-mask-section');
-  if(maskSec) maskSec.style.display=(S.view==='proctor')?'none':'';
+  if(maskSec) maskSec.style.display=(_pendingPrintView==='proctor')?'none':'';
   // 반 코드 표시 옵션 초기값: 시감자용은 켜짐(원래 시감자용에선 표시됐음), 학생용은 꺼짐
   const infoCheck=document.getElementById('pm-show-infobar');
-  if(infoCheck) infoCheck.checked=(S.view==='proctor');
+  if(infoCheck) infoCheck.checked=(_pendingPrintView==='proctor');
   // 기본 라디오 (마스킹)
   const mask=document.querySelector('[name="pm-mask"][value="true"]');
   if(mask) mask.checked=true;
@@ -5036,12 +5038,18 @@ function openPrintMaskModal(mode){
 }
 // 옵션 모달에서 [🖨 인쇄 시작] 클릭
 function _execPrintWithOpts(){
+  const targetView=_pendingPrintView||S.view;
   const maskInput=document.querySelector('[name="pm-mask"]:checked');
-  const maskNames=(S.view==='proctor')?false:(maskInput?maskInput.value==='true':true);
+  const maskNames=(targetView==='proctor')?false:(maskInput?maskInput.value==='true':true);
   const showInfoBar=document.getElementById('pm-show-infobar')?.checked||false;
   closeModal('print-mask-modal');
-  if(_pendingPrintAll) printAll(S.view==='proctor'?'proctor':'student', maskNames, showInfoBar);
-  else executePrint(maskNames, showInfoBar);
+  if(_pendingPrintAll){
+    printAll(targetView, maskNames, showInfoBar);
+  } else {
+    // 개별 인쇄는 현재 뷰 사용 (executePrint가 S.view 기준)
+    executePrint(maskNames, showInfoBar);
+  }
+  _pendingPrintView=null;
 }
 function doPrint(){
   const isStudent=S.view==='student',isProctor=S.view==='proctor';
