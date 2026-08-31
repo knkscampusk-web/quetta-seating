@@ -2256,7 +2256,7 @@ function renderGrid(room,isProctor){
       ${examDate?`<span class="phb-date">${examDate}</span>`:''}
       <span class="phb-type">${isProctor?'[시감자용]':'[학생용]'}</span>
     </div>
-    ${printClassLine&&!isProctor?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+    ${printClassLine&&!isProctor?`<div class="print-classline" style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
       <span style="font-size:10px;font-weight:700;color:var(--sl400);margin-right:2px">반 코드</span>
       ${printClassLine}
     </div>`:''}
@@ -5081,15 +5081,34 @@ function executePrint(maskNames, showInfoBar){
     .sgrid{margin:0 auto}
   `;
   const infoBarCss=showInfoBar?'flex':'none';
+  const classLineCss=showInfoBar?'flex':'none';
   if(isProctor){
     document.body.className='pp';
-    st.textContent=`@media print{${commonPrint}.name-full{display:inline!important}.name-mask{display:none!important}.cc-bar{display:flex!important}.info-bar{display:${infoBarCss}!important}}`;
+    st.textContent=`@media print{${commonPrint}
+      body.pp .name-full{display:inline!important}
+      body.pp .name-mask{display:none!important}
+      body.pp .cc-bar{display:flex!important}
+      body.pp .info-bar{display:${infoBarCss}!important}
+      body.pp .print-classline{display:${classLineCss}!important}
+    }`;
   }else if(maskNames){
     document.body.className='ps';
-    st.textContent=`@media print{${commonPrint}.name-full{display:none!important}.name-mask{display:inline!important}.info-bar{display:${infoBarCss}!important}.cc-bar{display:none!important}}`;
+    st.textContent=`@media print{${commonPrint}
+      body.ps .name-full{display:none!important}
+      body.ps .name-mask{display:inline!important}
+      body.ps .info-bar{display:${infoBarCss}!important}
+      body.ps .cc-bar{display:none!important}
+      body.ps .print-classline{display:${classLineCss}!important}
+    }`;
   }else{
     document.body.className='';
-    st.textContent=`@media print{${commonPrint}.name-full{display:inline!important}.name-mask{display:none!important}.info-bar{display:${infoBarCss}!important}.cc-bar{display:none!important}}`;
+    st.textContent=`@media print{${commonPrint}
+      .name-full{display:inline!important}
+      .name-mask{display:none!important}
+      .info-bar{display:${infoBarCss}!important}
+      .cc-bar{display:none!important}
+      .print-classline{display:${classLineCss}!important}
+    }`;
   }
   document.head.appendChild(st);
 
