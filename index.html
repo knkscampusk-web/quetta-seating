@@ -313,6 +313,76 @@ input,select,textarea{font-family:inherit;cursor:auto}
   </div>
 </div>
 
+<!-- 신규 사용자 정보 입력 화면 (첫 접속 시 본명/소속 입력) -->
+<div id="signup-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:#f1f5f9;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:32px 28px;width:420px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,.15)">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:32px;margin-bottom:8px">👋</div>
+      <div style="font-size:17px;font-weight:800;color:#0b1120">환영합니다!</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">첫 접속입니다. 승인 요청 정보를 입력해주세요.</div>
+    </div>
+    <div style="background:#f8fafc;padding:10px 12px;border-radius:8px;margin-bottom:16px;font-size:11px;color:#64748b;line-height:1.6">
+      <div>구글 계정: <b id="signup-email" style="color:#0b1120"></b></div>
+      <div>구글 계정 이름: <b id="signup-google-name" style="color:#0b1120"></b></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">본명 <span style="color:#dc2626">*</span></label>
+        <input type="text" id="signup-realname" placeholder="예: 홍길동"
+          style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit" autofocus>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">소속 <span style="color:#dc2626">*</span></label>
+        <input type="text" id="signup-affiliation" placeholder="예: 강남대성기숙 K반 담임 / 교무부"
+          style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">비고 (선택)</label>
+        <textarea id="signup-memo" placeholder="관리자에게 전달할 메모"
+          style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit;resize:vertical;min-height:60px"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button onclick="firebase.auth().signOut().then(()=>location.reload())"
+        style="padding:10px 16px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:13px;cursor:pointer;color:#64748b;font-family:inherit">취소</button>
+      <button onclick="submitSignupInfo()"
+        style="flex:1;padding:10px 16px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✅ 승인 요청 보내기</button>
+    </div>
+    <div id="signup-err" style="margin-top:8px;font-size:11px;color:#dc2626"></div>
+  </div>
+</div>
+
+<!-- 신청 정보 입력 화면 (Google 로그인 후, 미등록 사용자에게만) -->
+<div id="request-info-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:#f1f5f9;align-items:center;justify-content:center;padding:20px;overflow-y:auto">
+  <div style="background:#fff;border-radius:16px;padding:36px 32px;width:440px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,.15)">
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="font-size:36px;margin-bottom:10px">📝</div>
+      <div style="font-size:18px;font-weight:800;color:#0b1120">접속 승인 요청</div>
+      <div style="font-size:12px;color:#64748b;margin-top:6px">관리자가 승인할 수 있도록 <b>실명</b>과 <b>소속</b>을 알려주세요</div>
+    </div>
+    <div style="background:#f8fafc;padding:10px 12px;border-radius:8px;margin-bottom:16px;font-size:12px;color:#64748b">
+      <div><b style="color:#0b1120">Google 계정</b>: <span id="req-email"></span></div>
+      <div style="margin-top:3px"><b style="color:#0b1120">Google 이름</b>: <span id="req-google-name"></span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">실명 <span style="color:#dc2626">*</span></label>
+        <input type="text" id="req-realname" placeholder="예: 홍길동" maxlength="20" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#e2e8f0'">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">소속 <span style="color:#dc2626">*</span></label>
+        <input type="text" id="req-affiliation" placeholder="예: 강남대성 K1 담임" maxlength="40" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#e2e8f0'">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">신청 사유 <span style="color:#94a3b8">(선택)</span></label>
+        <textarea id="req-reason" placeholder="예: 9월 평가원 모의고사 감독 예정" maxlength="200" rows="2" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;resize:vertical" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+      </div>
+    </div>
+    <button id="req-submit-btn" onclick="submitApprovalRequest()" style="margin-top:18px;width:100%;padding:12px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit">🔔 승인 요청 보내기</button>
+    <button onclick="firebase.auth().signOut().then(()=>location.reload())" style="margin-top:8px;width:100%;padding:9px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:12px;cursor:pointer;color:#64748b;font-family:inherit">다른 계정으로 로그인</button>
+  </div>
+</div>
+
 <!-- 승인 대기 화면 -->
 <div id="pending-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:#f1f5f9;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;padding:40px 36px;width:400px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,.15);text-align:center">
@@ -1068,7 +1138,7 @@ function signInWithGoogle(){
 }
 
 function showScreen(name){
-  ['login-screen','pending-screen'].forEach(id=>{
+  ['login-screen','request-info-screen','pending-screen'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.style.display=(id===name)?'flex':'none';
   });
@@ -1105,38 +1175,80 @@ auth.onAuthStateChanged(async user=>{
     return;
   }
 
-  // 미등록 또는 미승인 → 요청 저장 + 잔디 알림
+  // 미등록 또는 미승인 → 정보 입력 화면 또는 대기 화면
   const userRef=USERS.doc(user.uid);
   const docSnap=await userRef.get();
   if(!docSnap.exists){
-    await userRef.set({
-      uid:user.uid,
-      name:user.displayName||'',
-      email:user.email||'',
-      approved:false,
-      requestedAt:firebase.firestore.FieldValue.serverTimestamp(),
+    // 신규 사용자 → 실명/소속 입력 화면
+    document.getElementById('req-email').textContent=user.email||'';
+    document.getElementById('req-google-name').textContent=user.displayName||'(없음)';
+    document.getElementById('req-realname').value='';
+    document.getElementById('req-affiliation').value='';
+    document.getElementById('req-reason').value='';
+    showScreen('request-info-screen');
+    // 승인 감지 리스너 (관리자가 미리 등록 & 승인했다면)
+    userRef.onSnapshot(s=>{
+      if(s.data()?.approved){
+        showScreen(null);
+        location.reload();
+      }
     });
-    sendJandi(
-      '🔔 QUETTA 접속 승인 요청',
-      `이름: ${user.displayName||'(없음)'}\n이메일: ${user.email}\n시각: ${new Date().toLocaleString('ko-KR')}\n\n👉 Firestore > 데이터베이스 > quetta_users 에서 approved: true로 변경해주세요`,
-      '#f59e0b'
-    );
+    return;
   }
+  // 이미 요청 저장됐지만 미승인 → 대기 화면
+  const savedName=docSnap.data().realname||user.displayName||user.email;
   document.getElementById('pending-msg').innerHTML=
-    `<b>${user.displayName||user.email}</b>님,<br>접속 요청이 관리자에게 전달되었습니다.`;
+    `<b>${savedName}</b>님,<br>접속 요청이 관리자에게 전달되었습니다.`;
   showScreen('pending-screen');
   // 승인 여부 실시간 감지
   userRef.onSnapshot(s=>{
     if(s.data()?.approved){
       showScreen(null);
       const ui=document.getElementById('user-info');
-      if(ui){ui.textContent=user.displayName||user.email;ui.style.display='';}
+      if(ui){ui.textContent=savedName;ui.style.display='';}
       const lb=document.getElementById('logout-btn');if(lb)lb.style.display='';
       writeLog('접속', user.email);
       load();
     }
   });
 });
+
+/* ═══ 승인 요청 제출 ═══ */
+async function submitApprovalRequest(){
+  const user=_currentUser;
+  if(!user){toast('로그인 필요','err');return;}
+  const realname=document.getElementById('req-realname').value.trim();
+  const affiliation=document.getElementById('req-affiliation').value.trim();
+  const reason=document.getElementById('req-reason').value.trim();
+  if(!realname){alert('실명을 입력해주세요');document.getElementById('req-realname').focus();return;}
+  if(!affiliation){alert('소속을 입력해주세요');document.getElementById('req-affiliation').focus();return;}
+  const btn=document.getElementById('req-submit-btn');
+  btn.disabled=true;btn.style.opacity='.6';btn.textContent='⏳ 요청 보내는 중...';
+  try{
+    await USERS.doc(user.uid).set({
+      uid:user.uid,
+      name:user.displayName||'',    // Google 계정 이름
+      realname:realname,             // 입력한 실명
+      affiliation:affiliation,       // 소속
+      reason:reason,                 // 신청 사유 (선택)
+      email:user.email||'',
+      approved:false,
+      requestedAt:firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    sendJandi(
+      '🔔 QUETTA 접속 승인 요청',
+      `실명: ${realname}\n소속: ${affiliation}\n${reason?`사유: ${reason}\n`:''}─────────────\nGoogle 이름: ${user.displayName||'(없음)'}\n이메일: ${user.email}\n시각: ${new Date().toLocaleString('ko-KR')}\n\n👉 Firestore > 데이터베이스 > quetta_users 에서 approved: true로 변경`,
+      '#f59e0b'
+    );
+    document.getElementById('pending-msg').innerHTML=
+      `<b>${realname}</b>님,<br>접속 요청이 관리자에게 전달되었습니다.`;
+    showScreen('pending-screen');
+  } catch(e){
+    console.error(e);
+    alert('요청 저장 실패: '+e.message);
+    btn.disabled=false;btn.style.opacity='1';btn.textContent='🔔 승인 요청 보내기';
+  }
+}
 
 /* ═══ STATE ═══ */
 const DEF_ROOMS=['L01호','101호','102호','201호','202호','203호','204호','301호','302호','303호','304호'];
