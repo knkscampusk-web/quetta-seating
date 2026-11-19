@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>QUETTA 좌석배치 - 전체 데이터 백업</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --ink:#0b1120; --sl50:#f8fafc; --sl100:#f1f5f9; --sl200:#e2e8f0;
+    --sl400:#94a3b8; --sl500:#64748b; --sl600:#475569; --sl700:#334155;
+    --teal:#0d9488; --teal-dark:#0f766e; --teal-light:#ccfbf1;
+    --peri:#818cf8; --peri-light:#eef2ff;
+    --warn:#f59e0b; --warn-light:#fef3c7;
+    --err:#dc2626; --err-light:#fef2f2;
+    --ok:#059669; --ok-light:#d1fae5;
+  }
+  body{
+    font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;
+    background:linear-gradient(135deg,#f8fafc,#e0f2fe);
+    min-height:100vh;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;padding:20px
+  }
+  .card{
+    background:#fff;border-radius:16px;padding:36px 32px;max-width:640px;width:100%;
+    box-shadow:0 10px 40px rgba(11,17,32,.08);
+  }
+  .brand{
+    display:flex;align-items:center;gap:10px;margin-bottom:6px;
+    font-size:12px;font-weight:700;color:var(--teal-dark);letter-spacing:.08em
+  }
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--teal)}
+  h1{font-size:22px;font-weight:800;margin-bottom:6px}
+  .sub{color:var(--sl500);font-size:13px;line-height:1.6;margin-bottom:24px}
+  .step{
+    background:var(--sl50);border:1px solid var(--sl200);
+    border-radius:10px;padding:14px 16px;margin-bottom:10px;
+    display:flex;gap:10px;align-items:flex-start
+  }
+  .step .num{
+    width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;
+    font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px
+  }
+  .step .txt{font-size:13px;line-height:1.6;color:var(--sl700)}
+  .step .txt b{color:var(--ink)}
+  .btn{
+    display:block;width:100%;padding:14px;border-radius:10px;border:none;
+    font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;
+    transition:all .15s;margin-top:12px
+  }
+  .btn-teal{background:var(--teal);color:#fff}
+  .btn-teal:hover{background:var(--teal-dark)}
+  .btn-teal:disabled{background:var(--sl400);cursor:not-allowed}
+  .btn-ghost{background:#fff;color:var(--sl600);border:1px solid var(--sl200)}
+  .btn-ghost:hover{background:var(--sl50)}
+  #log{
+    background:#0b1120;color:#a3e635;font-family:'Courier New',monospace;font-size:11px;
+    padding:14px;border-radius:8px;max-height:280px;overflow-y:auto;
+    margin-top:14px;display:none;line-height:1.6
+  }
+  #log .ok{color:#86efac}
+  #log .err{color:#fca5a5}
+  #log .info{color:#93c5fd}
+  #log .warn{color:#fde047}
+  #status{
+    padding:12px 14px;border-radius:8px;margin-top:14px;font-size:12px;font-weight:600;
+    display:none;align-items:center;gap:8px
+  }
+  #status.ok{background:var(--ok-light);color:#065f46}
+  #status.err{background:var(--err-light);color:#991b1b}
+  #status.info{background:var(--peri-light);color:#3730a3}
+  .meta{
+    margin-top:18px;padding-top:16px;border-top:1px dashed var(--sl200);
+    font-size:11px;color:var(--sl400);text-align:center;line-height:1.7
+  }
+  .meta b{color:var(--sl600)}
+  .warn-box{
+    background:var(--warn-light);border-left:3px solid var(--warn);
+    padding:10px 12px;border-radius:6px;font-size:12px;color:#78350f;
+    margin-bottom:18px;line-height:1.6
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand"><span class="dot"></span>QUETTA · 데이터 백업</div>
+  <h1>🗄 좌석배치 전체 데이터 백업</h1>
+  <div class="sub">
+    기존 Firebase에 저장된 모든 데이터를 JSON 파일 하나로 다운로드합니다. <br>
+    <b>읽기만 수행하며, 기존 데이터는 절대 변경되지 않습니다.</b>
+  </div>
+
+  <div class="warn-box">
+    💡 Google 로그인 시 <b>승인된 계정(sally625lee@gmail.com 등)</b>으로 로그인해야 데이터를 읽을 수 있습니다.
+  </div>
+
+  <div class="step"><div class="num">1</div><div class="txt">
+    <b>Google 로그인</b> — 이 페이지에 접근 권한이 있는 계정으로 로그인
+  </div></div>
+  <div class="step"><div class="num">2</div><div class="txt">
+    <b>[🗄 전체 백업 다운로드]</b> 클릭 — Firestore에서 모든 컬렉션 읽어서 하나의 JSON 파일로 저장
+  </div></div>
+  <div class="step"><div class="num">3</div><div class="txt">
+    다운로드 파일을 <b>로컬 안전한 곳에 보관</b> — 리뉴얼 중 문제 발생 시 복원에 사용
+  </div></div>
+
+  <button id="loginBtn" class="btn btn-teal" onclick="doLogin()">🔐 Google 로그인</button>
+  <button id="backupBtn" class="btn btn-teal" onclick="doBackup()" style="display:none">🗄 전체 백업 다운로드</button>
+  <button id="logoutBtn" class="btn btn-ghost" onclick="doLogout()" style="display:none">로그아웃</button>
+
+  <div id="status"></div>
+  <div id="log"></div>
+
+  <div class="meta">
+    백업 대상 컬렉션: <b>quetta/state</b> · <b>quetta_snapshots</b> · <b>quetta_users</b> · <b>quetta_logs</b><br>
+    파일명 형식: <b>quetta_backup_YYYY-MM-DD_HHmm.json</b>
+  </div>
+</div>
+
+<!-- Firebase SDK (기존 앱과 동일 설정) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig={
+  apiKey:"AIzaSyCbHwOifJ_ajPyxr66uTUpqugDl5GW8tOY",
+  authDomain:"quetta-seating.firebaseapp.com",
+  projectId:"quetta-seating",
+  storageBucket:"quetta-seating.firebasestorage.app",
+  messagingSenderId:"1077604101845",
+  appId:"1:1077604101845:web:c75b09e9e4e8f0f4f3c7a1"
+};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth();
+const db=firebase.firestore();
+
+function setStatus(msg,type='info'){
+  const s=document.getElementById('status');
+  s.className=type;s.style.display='flex';s.textContent=msg;
+}
+function log(msg,type=''){
+  const l=document.getElementById('log');
+  l.style.display='block';
+  const line=document.createElement('div');
+  if(type) line.className=type;
+  const t=new Date().toLocaleTimeString('ko-KR');
+  line.textContent=`[${t}] ${msg}`;
+  l.appendChild(line);
+  l.scrollTop=l.scrollHeight;
+}
+
+async function doLogin(){
+  const provider=new firebase.auth.GoogleAuthProvider();
+  try{
+    await auth.signInWithPopup(provider);
+  }catch(e){
+    setStatus('로그인 실패: '+e.message,'err');
+    log('Login error: '+e.message,'err');
+  }
+}
+
+async function doLogout(){
+  await auth.signOut();
+  location.reload();
+}
+
+auth.onAuthStateChanged(user=>{
+  if(user){
+    document.getElementById('loginBtn').style.display='none';
+    document.getElementById('backupBtn').style.display='block';
+    document.getElementById('logoutBtn').style.display='block';
+    setStatus(`✅ 로그인됨: ${user.email}`,'ok');
+    log(`로그인: ${user.email} (uid: ${user.uid.slice(0,8)}...)`,'ok');
+  }else{
+    document.getElementById('loginBtn').style.display='block';
+    document.getElementById('backupBtn').style.display='none';
+    document.getElementById('logoutBtn').style.display='none';
+    document.getElementById('status').style.display='none';
+  }
+});
+
+async function doBackup(){
+  const btn=document.getElementById('backupBtn');
+  btn.disabled=true;btn.textContent='⏳ 백업 진행 중...';
+  setStatus('백업 중...','info');
+
+  const backup={
+    meta:{
+      exportedAt:new Date().toISOString(),
+      exportedBy:auth.currentUser?.email||'',
+      projectId:firebaseConfig.projectId,
+      version:'v1_backup_pre_v2_renewal'
+    },
+    data:{}
+  };
+
+  try{
+    // 1. quetta/state (메인 문서)
+    log('📖 quetta/state 읽는 중...','info');
+    const stateSnap=await db.collection('quetta').doc('state').get();
+    if(stateSnap.exists){
+      backup.data.state=stateSnap.data();
+      log(`✓ state 완료 (${JSON.stringify(stateSnap.data()).length.toLocaleString()} bytes)`,'ok');
+    } else {
+      log('⚠ quetta/state 문서 없음','warn');
+      backup.data.state=null;
+    }
+
+    // 2. quetta_snapshots 컬렉션
+    log('📖 quetta_snapshots 읽는 중...','info');
+    const snapsSnap=await db.collection('quetta_snapshots').get();
+    backup.data.snapshots=[];
+    snapsSnap.forEach(doc=>{
+      backup.data.snapshots.push({id:doc.id,...doc.data()});
+    });
+    log(`✓ snapshots 완료 (${backup.data.snapshots.length}개)`,'ok');
+
+    // 3. quetta_users 컬렉션
+    log('📖 quetta_users 읽는 중...','info');
+    const usersSnap=await db.collection('quetta_users').get();
+    backup.data.users=[];
+    usersSnap.forEach(doc=>{
+      backup.data.users.push({id:doc.id,...doc.data()});
+    });
+    log(`✓ users 완료 (${backup.data.users.length}개)`,'ok');
+
+    // 4. quetta_logs 컬렉션 (최근 1000개만)
+    log('📖 quetta_logs 읽는 중 (최근 1000개)...','info');
+    const logsSnap=await db.collection('quetta_logs').orderBy('ts','desc').limit(1000).get();
+    backup.data.logs=[];
+    logsSnap.forEach(doc=>{
+      backup.data.logs.push({id:doc.id,...doc.data()});
+    });
+    log(`✓ logs 완료 (${backup.data.logs.length}개)`,'ok');
+
+    // Timestamp 직렬화 (Firebase Timestamp → ISO string)
+    const serialized=JSON.stringify(backup,(k,v)=>{
+      if(v && typeof v==='object' && v.seconds!==undefined && v.nanoseconds!==undefined){
+        return {_type:'timestamp',iso:new Date(v.seconds*1000).toISOString()};
+      }
+      return v;
+    },2);
+
+    const size=serialized.length;
+    log(`📦 총 데이터 크기: ${(size/1024).toLocaleString()} KB`,'info');
+
+    // 다운로드
+    const d=new Date();
+    const fname=`quetta_backup_${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}.json`;
+
+    const blob=new Blob([serialized],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=fname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    log(`💾 다운로드: ${fname}`,'ok');
+    setStatus(`✅ 백업 완료 — ${fname} 다운로드됨 (${(size/1024).toLocaleString()} KB)`,'ok');
+
+    btn.disabled=false;btn.textContent='🗄 전체 백업 다운로드 (다시)';
+
+  }catch(e){
+    console.error(e);
+    log(`❌ 오류: ${e.message}`,'err');
+    setStatus('백업 실패: '+e.message,'err');
+    btn.disabled=false;btn.textContent='🗄 전체 백업 다운로드 (재시도)';
+  }
+}
+</script>
+</body>
+</html>
