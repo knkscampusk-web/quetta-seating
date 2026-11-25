@@ -396,16 +396,17 @@ body{
   background:var(--sl100);padding:1px 5px;border-radius:3px;
 }
 .sb-layout-item .lo-apply{
-  padding:3px 8px;font-size:10px;font-weight:800;
-  background:var(--teal);color:#fff;border:none;border-radius:4px;
-  cursor:pointer;flex-shrink:0;transition:background .12s;
-}
-.sb-layout-item .lo-apply:hover{background:var(--teal-dark)}
-.sb-layout-item .lo-apply:disabled{
+  padding:2px 7px;font-size:10px;font-weight:800;
   background:var(--teal-50);color:var(--teal-dark);
-  cursor:default;border:1px solid var(--teal-light);padding:2px 7px;
+  border:1px solid var(--teal-light);border-radius:4px;
+  cursor:pointer;flex-shrink:0;transition:all .12s;
 }
-.sb-layout-item .lo-apply:disabled:hover{background:var(--teal-50)}
+.sb-layout-item .lo-apply:hover{background:#ccfbf1;border-color:var(--teal)}
+.sb-layout-item .lo-apply:disabled{
+  background:var(--teal-dark);color:#fff;
+  border:none;cursor:default;padding:3px 8px;
+}
+.sb-layout-item .lo-apply:disabled:hover{background:var(--teal-dark)}
 .sb-layout-item .lo-btn{
   width:22px;height:22px;padding:0;border:none;background:transparent;
   display:flex;align-items:center;justify-content:center;
@@ -1378,6 +1379,10 @@ body{
               <i data-lucide="scroll-text" style="width:18px;height:18px"></i>
               <span style="font-weight:700;font-size:12px">활동 이력</span>
             </button>
+            <button class="btn btn-ghost" onclick="openRosterReset()" style="padding:12px 10px;flex-direction:column;align-items:center;gap:4px;height:auto;color:var(--err)">
+              <i data-lucide="eraser" style="width:18px;height:18px"></i>
+              <span style="font-weight:700;font-size:12px">명단 리셋</span>
+            </button>
           </div>
         </div>
         <!-- 좌석 표시 설정 (학생용/시감자용 분리) -->
@@ -1674,6 +1679,18 @@ body{
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ═══ 명단 리셋 모달 (관리자) ═══ -->
+<div class="overlay" id="roster-reset-modal">
+  <div class="modal" style="width:95vw;max-width:520px;max-height:85vh">
+    <div class="modal-hd">
+      <button class="icon-btn" onclick="goBackToAdmin('roster-reset-modal')" title="관리자 메뉴로"><i data-lucide="arrow-left"></i></button>
+      <h3>🧹 명단 리셋</h3>
+      <button class="icon-btn" onclick="closeModal('roster-reset-modal')" style="margin-left:auto"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body" id="roster-reset-content"></div>
   </div>
 </div>
 
@@ -3209,6 +3226,7 @@ function renderActiveRoom(){
           <div style="width:1px;height:20px;background:var(--sl200);margin:0 2px"></div>
           <button class="btn ${_dirty?'btn-teal':'btn-ghost'} btn-sm" onclick="openSnapSave()" ${!S.activeExamName?'disabled':''} title="${_dirty?'⚠ 저장되지 않은 변경사항 — 이 강의실만 저장됩니다':'이 강의실 배치 스냅샷 저장'}"><i data-lucide="camera"></i> 저장${_dirty?' <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#fff;margin-left:4px"></span>':''}</button>
           <button class="btn btn-ghost btn-sm" onclick="openSnapList()" title="이 강의실의 지난 배치 조회"><i data-lucide="archive"></i> 지난 배치</button>
+          <button class="icon-btn" onclick="resetRoomRoster()" ${readonly||!S.activeExamName?'disabled':''} title="이 강의실 명단 리셋 (배열 유지, 자동 백업 생성)" style="color:var(--err);padding:5px"><i data-lucide="eraser" style="width:14px;height:14px"></i></button>
         `:''}
       </div>
     </div>
@@ -7434,6 +7452,167 @@ function downloadStatsExcel(){
 let _allSnapshots=[];  // 캐시
 let _viewingSnap=null;
 let _viewingSnapActiveRoom=null;
+
+/* ═══ 명단 리셋 (담임: 강의실 / 관리자: 전체 or 특정 강의실) ═══ */
+
+// 리셋 전 자동 백업 스냅샷
+async function _createResetBackup(scopeKind, roomInfo){
+  const exam=S.activeExamType==='main'?S.mainExams.find(e=>e.name===S.activeExamName):S.contentExams.find(e=>e.name===S.activeExamName);
+  const now=new Date();
+  const dateStr=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const nameSuffix=roomInfo?` [${roomInfo.name}]`:'';
+  const scopeStudents=roomInfo
+    ? S.students.filter(s=>s.고사장===roomInfo.id)
+    : S.students;
+  const snap={
+    name:`리셋 전 자동 백업${nameSuffix} - ${dateStr}`,
+    type:S.activeExamType,
+    examType:S.activeExamName,
+    date:exam?.date||'',
+    scope:roomInfo?'room':'exam',
+    roomId:roomInfo?.id||null,
+    roomName:roomInfo?.name||null,
+    rooms:JSON.parse(JSON.stringify(S.rooms)),
+    students:JSON.parse(JSON.stringify(scopeStudents)),
+    banRoomMap:{...S.banRoomMap},
+    banColorMap:{...S.banColorMap},
+    cardPrefix:{...S.cardPrefix},
+    notice:JSON.parse(JSON.stringify(getCurrentNotice())),
+    createdAt:Date.now(),
+    createdBy:_currentUser.email,
+    idMode:S.idMode,
+    isAutoBackup:true
+  };
+  await V2_SNAPSHOTS.add(snap);
+  _allSnapshots=[];  // 캐시 무효화
+}
+
+// 담임용 (또는 관리자가 특정 강의실만) — 현재 강의실 명단 리셋
+async function resetRoomRoster(){
+  if(!S.activeExamName){toast('모의고사 선택 필요','err');return;}
+  if(!S.active){toast('강의실 선택 필요','err');return;}
+  const room=S.rooms.find(r=>r.id===S.active);
+  if(!room) return;
+  const targets=S.students.filter(s=>s.고사장===room.id);
+  if(!targets.length){
+    toast(`${room.name}에 명단이 없습니다`,'');
+    return;
+  }
+  if(!confirm(`⚠ "${S.activeExamName}" 모의고사의 "${room.name}" 명단을 모두 삭제합니다.\n\n📌 삭제될 학생: ${targets.length}명\n📸 삭제 전 자동 백업 스냅샷이 생성됩니다 (스냅샷에서 복원 가능)\n\n계속할까요?`)) return;
+  try{
+    toast('자동 백업 생성 중…','');
+    await _createResetBackup('room', {id:room.id, name:room.name});
+    // 해당 강의실 학생 제거
+    const examKey=currentExamKey();
+    const beforeLen=S.students.length;
+    S.studentsByExam[examKey]=S.students.filter(s=>s.고사장!==room.id);
+    const removed=beforeLen - S.students.length;
+    // _i 재할당
+    S.students.forEach((s,i)=>{s._i=i;});
+    markDirty();
+    await saveV2();
+    renderRoomBar();
+    renderActiveRoom();
+    toast(`🧹 ${room.name} 명단 ${removed}명 리셋 완료`,'ok');
+    writeLog('강의실 명단 리셋',`${room.name} - ${removed}명`);
+  }catch(e){
+    console.error(e);
+    toast('리셋 실패: '+e.message,'err');
+  }
+}
+
+// 관리자용 — 현재 모의고사 전체 명단 리셋
+async function resetExamRoster(){
+  if(!_adminMode){toast('관리자만 가능','err');return;}
+  if(!S.activeExamName){toast('모의고사 선택 필요','err');return;}
+  const total=S.students.length;
+  if(!total){toast('명단이 없습니다','');return;}
+  const byRoom={};
+  S.students.forEach(s=>{
+    const rn=S.rooms.find(r=>r.id===s.고사장)?.name||'(미배정 소속)';
+    byRoom[rn]=(byRoom[rn]||0)+1;
+  });
+  const roomSummary=Object.entries(byRoom).map(([n,c])=>`• ${n}: ${c}명`).join('\n');
+  if(!confirm(`⚠ "${S.activeExamName}" 모의고사의 전체 명단을 모두 삭제합니다.\n\n📌 삭제될 학생: 총 ${total}명\n${roomSummary}\n\n📸 삭제 전 자동 백업 스냅샷이 생성됩니다 (스냅샷에서 복원 가능)\n\n계속할까요?`)) return;
+  // 한 번 더 확인
+  if(!confirm(`정말로 "${S.activeExamName}" 전체 ${total}명 명단을 지우시겠습니까?`)) return;
+  try{
+    toast('자동 백업 생성 중…','');
+    await _createResetBackup('exam', null);
+    const examKey=currentExamKey();
+    S.studentsByExam[examKey]=[];
+    markDirty();
+    await saveV2();
+    closeModal('roster-reset-modal');
+    renderRoomBar();
+    renderActiveRoom();
+    toast(`🧹 전체 명단 ${total}명 리셋 완료`,'ok');
+    writeLog('모의고사 전체 명단 리셋',`${S.activeExamName} - ${total}명`);
+  }catch(e){
+    console.error(e);
+    toast('리셋 실패: '+e.message,'err');
+  }
+}
+
+// 관리자용 — 특정 강의실만 리셋 (모달에서 선택)
+async function resetSelectedRoomRoster(roomId){
+  if(!_adminMode){toast('관리자만 가능','err');return;}
+  if(!S.activeExamName){toast('모의고사 선택 필요','err');return;}
+  const room=S.rooms.find(r=>r.id===roomId);
+  if(!room) return;
+  const targets=S.students.filter(s=>s.고사장===room.id);
+  if(!targets.length){toast(`${room.name}에 명단이 없습니다`,'');return;}
+  if(!confirm(`⚠ "${S.activeExamName}" / "${room.name}" 명단을 모두 삭제합니다.\n\n📌 삭제될 학생: ${targets.length}명\n📸 삭제 전 자동 백업 스냅샷이 생성됩니다\n\n계속할까요?`)) return;
+  try{
+    toast('자동 백업 생성 중…','');
+    await _createResetBackup('room', {id:room.id, name:room.name});
+    const examKey=currentExamKey();
+    S.studentsByExam[examKey]=S.students.filter(s=>s.고사장!==room.id);
+    S.students.forEach((s,i)=>{s._i=i;});
+    markDirty();
+    await saveV2();
+    closeModal('roster-reset-modal');
+    renderRoomBar();
+    renderActiveRoom();
+    toast(`🧹 ${room.name} 명단 ${targets.length}명 리셋 완료`,'ok');
+    writeLog('강의실 명단 리셋',`${room.name} - ${targets.length}명`);
+  }catch(e){
+    console.error(e);
+    toast('리셋 실패: '+e.message,'err');
+  }
+}
+
+// 리셋 모달 열기 (관리자 전용)
+function openRosterReset(){
+  if(!_adminMode){toast('관리자만 가능','err');return;}
+  if(!S.activeExamName){toast('모의고사 선택 필요','err');return;}
+  goBackToAdmin('admin-modal');  // 관리자 모달 닫기
+  const total=S.students.length;
+  const roomsHtml=S.rooms.map(r=>{
+    const count=S.students.filter(s=>s.고사장===r.id).length;
+    return `<button class="btn btn-ghost" onclick="resetSelectedRoomRoster('${r.id}')" ${!count?'disabled':''} style="width:100%;justify-content:space-between;margin-bottom:5px;${!count?'opacity:.5':''}">
+      <span><i data-lucide="door-open" style="width:12px;height:12px"></i> ${escapeHtml(r.name)}</span>
+      <span style="color:var(--sl500);font-size:11px">${count}명</span>
+    </button>`;
+  }).join('');
+  document.getElementById('roster-reset-content').innerHTML=`
+    <div style="padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:800;color:var(--err);margin-bottom:4px">⚠ 돌이킬 수 없는 작업입니다</div>
+      <div style="font-size:11px;color:#7f1d1d;line-height:1.5">
+        명단은 삭제되지만 <b>배열(좌석 상태)은 그대로</b> 유지됩니다.<br>
+        리셋 직전 <b>자동 백업 스냅샷</b>이 생성되므로 스냅샷 모달에서 복원 가능합니다.
+      </div>
+    </div>
+    <div class="sb-sec-ttl" style="font-size:11px;font-weight:700;color:var(--sl600);margin-bottom:8px">전체 리셋</div>
+    <button class="btn" style="width:100%;background:var(--err);color:#fff;border-color:var(--err);justify-content:space-between" onclick="resetExamRoster()">
+      <span><i data-lucide="trash-2" style="width:14px;height:14px"></i> "${escapeHtml(S.activeExamName)}" 전체 명단 리셋</span>
+      <span style="font-weight:800">${total}명</span>
+    </button>
+    <div class="sb-sec-ttl" style="font-size:11px;font-weight:700;color:var(--sl600);margin:16px 0 8px">강의실별 리셋</div>
+    ${roomsHtml||'<div style="font-size:11px;color:var(--sl400);text-align:center;padding:12px">강의실이 없습니다</div>'}
+  `;
+  openModal('roster-reset-modal');
+}
 
 function openSnapSave(){
   if(!S.activeExamName){toast('모의고사 선택 필요','err');return;}
