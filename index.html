@@ -7835,11 +7835,44 @@ function renderSnapViewer(){
   const d=snap.createdAt?new Date(snap.createdAt):null;
   const dStr=d?d.toLocaleString('ko-KR'):'—';
   document.getElementById('snap-view-title').innerHTML=`<span class="type-badge ${snap.type||'main'}" style="margin-right:8px">${snap.type==='content'?'콘텐츠':'메인'}</span>${snap.name||''}`;
-  // 가져오기 버튼 조건부 표시 (다른 모의고사의 스냅샷일 때만)
+  // 가져오기 버튼 조건 분기
   const isCurrentExam=(snap.type===S.activeExamType && snap.examType===S.activeExamName);
+  const isAutoBackup=!!snap.isAutoBackup;
+  const isTeacherSelfRoom=!_adminMode && snap.scope==='room' && snap.roomId===S.active;
   const importArea=document.getElementById('snap-import-area');
   if(importArea){
-    importArea.style.display=(isCurrentExam || !S.activeExamName)?'none':'flex';
+    let showImport=false;
+    let btnLabel='이 배치를 가져오기';
+    let btnStyle='';
+    if(!S.activeExamName){
+      showImport=false;
+    } else if(!isCurrentExam){
+      // 다른 모의고사 → 가져오기 (기존)
+      showImport=true;
+    } else if(isAutoBackup){
+      // 자동 백업 → 리셋 되돌리기 (항상 허용)
+      showImport=true;
+      btnLabel='🔄 이 백업으로 되돌리기';
+      btnStyle='background:#22c55e;border-color:#22c55e;color:#fff';
+    } else if(_adminMode){
+      // 관리자 + 같은 모의고사 일반 스냅샷 → 덮어쓰기 가능
+      showImport=true;
+      btnLabel='⚠ 현재를 이 배치로 교체';
+      btnStyle='background:var(--warn);border-color:var(--warn);color:#fff';
+    } else if(isTeacherSelfRoom){
+      // 담임 + 자기 강의실 room scope → 복원 허용
+      showImport=true;
+      btnLabel='🔄 이 배치로 복원';
+      btnStyle='background:#22c55e;border-color:#22c55e;color:#fff';
+    }
+    importArea.style.display=showImport?'flex':'none';
+    if(showImport){
+      const btn=importArea.querySelector('button');
+      if(btn){
+        btn.innerHTML=`<i data-lucide="${isAutoBackup||isTeacherSelfRoom?'rotate-ccw':'download'}"></i> ${btnLabel}`;
+        btn.setAttribute('style', btnStyle);
+      }
+    }
   }
   // 뷰 토글 (학생용/시감자용)
   const snapView=snap._view||'student';
@@ -7920,12 +7953,18 @@ function importFromSnapshot(){
   if(isReadonlyForDeadline()){toast('⛔ 수정기한 지남','err');return;}
   const snap=_viewingSnap;
   const isSameExam=snap.type===S.activeExamType && snap.examType===S.activeExamName;
-  // 담임의 자기 강의실 room 스냅샷은 같은 모의고사도 복원 허용 (되돌리기 용도)
+  const isAutoBackup=!!snap.isAutoBackup;
   const isTeacherSelfRoom=!_adminMode && snap.scope==='room' && snap.roomId===S.active;
-  if(isSameExam && !isTeacherSelfRoom){
+  // 같은 모의고사일 때: 자동 백업 / 담임 자기 강의실 / 관리자 → 허용
+  if(isSameExam && !isAutoBackup && !isTeacherSelfRoom && !_adminMode){
     toast('같은 모의고사의 저장본은 가져올 수 없습니다','err');return;
   }
   const room=S.rooms.find(r=>r.id===S.active);
+  // 자동 백업: scope가 이미 정해져 있으므로 바로 복원
+  if(isAutoBackup){
+    confirmImport(snap.scope==='room'?'room':'all');
+    return;
+  }
   // 담임이면 범위 선택 없이 room으로 바로
   if(!_adminMode){
     confirmImport('room');
