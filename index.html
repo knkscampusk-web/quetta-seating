@@ -2988,11 +2988,22 @@ async function loadV2(){
         await saveV2();
       }
 
-      // activeExamName 선택 — 사용자가 마지막 본 것 우선, 없으면 시행일이 오늘과 가장 가까운 것
-      const list=S.activeExamType==='main'?S.mainExams:S.contentExams;
-      if(!S.activeExamName || !list.find(e=>e.name===S.activeExamName)){
-        if(list.length){
-          S.activeExamName=pickClosestDateExam(list)?.name||list[0].name;
+      // activeExamName 선택 — 접속할 때마다 "오늘과 가장 가까운 시행일"로 자동 전환
+      // (공용 계정이라 이전 사용자가 열어둔 상태를 그대로 이어받지 않도록)
+      // 메인 우선, 메인에 시행일 있는 게 없으면 콘텐츠로
+      const mainClosest=pickClosestDateExam(S.mainExams);
+      const contentClosest=pickClosestDateExam(S.contentExams);
+      if(mainClosest){
+        S.activeExamType='main';
+        S.activeExamName=mainClosest.name;
+      } else if(contentClosest){
+        S.activeExamType='content';
+        S.activeExamName=contentClosest.name;
+      } else {
+        // 시행일 없으면 각 카테고리 첫 번째 사용
+        const list=S.activeExamType==='main'?S.mainExams:S.contentExams;
+        if(!S.activeExamName || !list.find(e=>e.name===S.activeExamName)){
+          if(list.length) S.activeExamName=list[0].name;
         }
       }
       if(!S.active || !S.rooms.find(r=>r.id===S.active)){
@@ -3655,8 +3666,10 @@ function editRemoveCol(){
 }
 
 function renderUnassignedSidebar(){
-  // 전체 모의고사 미배정 (강의실 상관 없이)
-  const list=S.students.filter(s=>!s.자리);
+  // 담임: 현재 강의실 소속 미배정만 / 관리자: 전체
+  const isTeacher=!_adminMode;
+  const allList=S.students.filter(s=>!s.자리);
+  const list=isTeacher ? allList.filter(s=>s.고사장===S.active) : allList;
   const filterText=(window._sbFilter||'').trim().toLowerCase();
   const filtered=filterText?list.filter(s=>{
     const roomName=(S.rooms.find(r=>r.id===s.고사장)?.name||'').toLowerCase();
@@ -3668,26 +3681,31 @@ function renderUnassignedSidebar(){
   }):list;
   // 반→학번 순
   filtered.sort((a,b)=>(a.반||'').localeCompare(b.반||'','ko',{numeric:true}) || (+a.학번||0)-(+b.학번||0));
+  const currentRoomName=S.rooms.find(r=>r.id===S.active)?.name||'';
+  const headerLabel=isTeacher && currentRoomName ? `${currentRoomName} 미배정` : '미배정';
+  const placeholder=isTeacher ? '이름·학번·반 검색' : '이름·학번·반·강의실 검색';
   return `<aside class="unassigned-sidebar">
     <div class="sb-hd">
       <i data-lucide="inbox" style="width:13px;height:13px;color:#78350f"></i>
-      <h4>미배정</h4>
+      <h4>${escapeHtml(headerLabel)}</h4>
       <span class="cnt">${list.length}</span>
     </div>
     <div class="sb-filter">
-      <input type="text" placeholder="이름·학번·반·강의실 검색" value="${window._sbFilter||''}" oninput="_sbFilter=this.value;renderSidebarBody()">
+      <input type="text" placeholder="${placeholder}" value="${window._sbFilter||''}" oninput="_sbFilter=this.value;renderSidebarBody()">
     </div>
-    <div class="sb-body" id="sb-body">${renderSidebarChips(filtered)}</div>
+    <div class="sb-body" id="sb-body">${renderSidebarChips(filtered, isTeacher)}</div>
   </aside>`;
 }
 
-function renderSidebarChips(list){
+function renderSidebarChips(list, isTeacher){
   if(!list.length){
     return `<div class="sb-empty"><i data-lucide="check-circle" style="width:16px;height:16px;color:#22c55e;display:block;margin:0 auto 4px"></i>미배정 없음</div>`;
   }
   return list.map(s=>{
     const gCls=s.성별==='남'?'sb-gender-m':s.성별==='여'?'sb-gender-f':'';
     const roomName=S.rooms.find(r=>r.id===s.고사장)?.name||'';
+    // 담임은 어차피 자기 강의실만 보니 강의실 뱃지 생략
+    const showRoomTag=!isTeacher && roomName;
     return `<div class="sb-chip" draggable="true" data-stu="${s._i}"
       ondragstart="onSidebarDragStart(event,${s._i})"
       ondragend="onSidebarDragEnd(event)"
@@ -3695,7 +3713,7 @@ function renderSidebarChips(list){
       <div class="sb-top">
         <span class="sb-name">${escapeHtml(s.이름||'')}</span>
         <span class="sb-ban">${s.반||'—'}</span>
-        ${roomName?`<span class="sb-room-tag">${escapeHtml(roomName)}</span>`:''}
+        ${showRoomTag?`<span class="sb-room-tag">${escapeHtml(roomName)}</span>`:''}
         <button class="sb-del" draggable="false" onclick="event.stopPropagation();deleteUnassignedStudent(${s._i})" onmousedown="event.stopPropagation()" title="명단에서 삭제">×</button>
       </div>
       <div class="sb-meta">
@@ -3706,7 +3724,9 @@ function renderSidebarChips(list){
 }
 
 function renderSidebarBody(){
-  const list=S.students.filter(s=>!s.자리);
+  const isTeacher=!_adminMode;
+  const allList=S.students.filter(s=>!s.자리);
+  const list=isTeacher ? allList.filter(s=>s.고사장===S.active) : allList;
   const filterText=(window._sbFilter||'').trim().toLowerCase();
   const filtered=filterText?list.filter(s=>{
     const roomName=(S.rooms.find(r=>r.id===s.고사장)?.name||'').toLowerCase();
@@ -3718,7 +3738,7 @@ function renderSidebarBody(){
   }):list;
   filtered.sort((a,b)=>(a.반||'').localeCompare(b.반||'','ko',{numeric:true}) || (+a.학번||0)-(+b.학번||0));
   const el=document.getElementById('sb-body');
-  if(el){el.innerHTML=renderSidebarChips(filtered);if(window.lucide) lucide.createIcons();}
+  if(el){el.innerHTML=renderSidebarChips(filtered, isTeacher);if(window.lucide) lucide.createIcons();}
 }
 
 function onSidebarDragStart(ev, stuIdx){
