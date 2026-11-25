@@ -512,6 +512,18 @@ body{
   background:var(--sl100);padding:1px 5px;border-radius:3px;
 }
 .sb-chip .sb-meta{font-size:10px;color:var(--sl500)}
+.sb-chip .sb-del{
+  width:18px;height:18px;border:none;background:transparent;
+  color:var(--sl400);cursor:pointer;border-radius:3px;padding:0;
+  font-size:14px;font-weight:700;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  margin-left:auto;
+}
+.sb-chip .sb-del:hover{background:#fee2e2;color:var(--err)}
+.sb-chip .sb-room-tag{
+  font-size:10px;padding:1px 5px;border-radius:3px;
+  background:var(--teal-50);color:var(--teal-dark);font-weight:700;
+}
 .sb-chip .sb-gender-m{color:#2563eb}
 .sb-chip .sb-gender-f{color:#db2777}
 .sb-empty{
@@ -3647,10 +3659,12 @@ function renderUnassignedSidebar(){
   const list=S.students.filter(s=>!s.자리);
   const filterText=(window._sbFilter||'').trim().toLowerCase();
   const filtered=filterText?list.filter(s=>{
+    const roomName=(S.rooms.find(r=>r.id===s.고사장)?.name||'').toLowerCase();
     return (s.이름||'').toLowerCase().includes(filterText) ||
            String(s.학번||'').includes(filterText) ||
            (s.반||'').toLowerCase().includes(filterText) ||
-           String(s.반코드||'').includes(filterText);
+           String(s.반코드||'').includes(filterText) ||
+           roomName.includes(filterText);
   }):list;
   // 반→학번 순
   filtered.sort((a,b)=>(a.반||'').localeCompare(b.반||'','ko',{numeric:true}) || (+a.학번||0)-(+b.학번||0));
@@ -3661,7 +3675,7 @@ function renderUnassignedSidebar(){
       <span class="cnt">${list.length}</span>
     </div>
     <div class="sb-filter">
-      <input type="text" placeholder="이름·학번·반 검색" value="${window._sbFilter||''}" oninput="_sbFilter=this.value;renderSidebarBody()">
+      <input type="text" placeholder="이름·학번·반·강의실 검색" value="${window._sbFilter||''}" oninput="_sbFilter=this.value;renderSidebarBody()">
     </div>
     <div class="sb-body" id="sb-body">${renderSidebarChips(filtered)}</div>
   </aside>`;
@@ -3677,13 +3691,15 @@ function renderSidebarChips(list){
     return `<div class="sb-chip" draggable="true" data-stu="${s._i}"
       ondragstart="onSidebarDragStart(event,${s._i})"
       ondragend="onSidebarDragEnd(event)"
-      title="${escapeHtml(s.이름||'')} · ${s.반||''} · ${s.학번||''}">
+      title="${escapeHtml(s.이름||'')} · ${s.반||''} · ${roomName} · ${s.학번||''}">
       <div class="sb-top">
         <span class="sb-name">${escapeHtml(s.이름||'')}</span>
         <span class="sb-ban">${s.반||'—'}</span>
+        ${roomName?`<span class="sb-room-tag">${escapeHtml(roomName)}</span>`:''}
+        <button class="sb-del" draggable="false" onclick="event.stopPropagation();deleteUnassignedStudent(${s._i})" onmousedown="event.stopPropagation()" title="명단에서 삭제">×</button>
       </div>
       <div class="sb-meta">
-        <span class="${gCls}">${s.성별||'·'}</span> · 학번 ${s.학번||'—'}${roomName?` · <span style="color:var(--teal-dark)">${roomName}</span>`:''}
+        <span class="${gCls}">${s.성별||'·'}</span> · 학번 ${s.학번||'—'}
       </div>
     </div>`;
   }).join('');
@@ -3693,10 +3709,12 @@ function renderSidebarBody(){
   const list=S.students.filter(s=>!s.자리);
   const filterText=(window._sbFilter||'').trim().toLowerCase();
   const filtered=filterText?list.filter(s=>{
+    const roomName=(S.rooms.find(r=>r.id===s.고사장)?.name||'').toLowerCase();
     return (s.이름||'').toLowerCase().includes(filterText) ||
            String(s.학번||'').includes(filterText) ||
            (s.반||'').toLowerCase().includes(filterText) ||
-           String(s.반코드||'').includes(filterText);
+           String(s.반코드||'').includes(filterText) ||
+           roomName.includes(filterText);
   }):list;
   filtered.sort((a,b)=>(a.반||'').localeCompare(b.반||'','ko',{numeric:true}) || (+a.학번||0)-(+b.학번||0));
   const el=document.getElementById('sb-body');
